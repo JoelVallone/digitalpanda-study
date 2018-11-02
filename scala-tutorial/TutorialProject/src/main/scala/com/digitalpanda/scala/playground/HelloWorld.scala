@@ -1,10 +1,14 @@
 package com.digitalpanda.scala.playground
 
-import java.io.File
+import java.io._
+import scala.util.control.Breaks._
+import java.net.{MalformedURLException, URL}
 
 import scala.io.Source
 
 object HelloWorld {
+
+
   def main(args: Array[String]): Unit = {
     chapter_2_first_steps_in_Scala(args)
     chapter_3_next_steps_in_Scala(args)
@@ -12,8 +16,80 @@ object HelloWorld {
     chapter_5_basic_types_and_operations(args)
     chapter_6_functional_objects(args)
     chapter_7_built_in_control_structures(args)
+    chapter_8_functions_and_closures(args)
   }
 
+
+  def chapter_8_functions_and_closures(args: Array[String]): Unit = {
+    // Programs should be decomposed into many small functions that each do a well-defined task.
+    // Individual functions are often quite small.
+    // Each building block should be simple enough to be understood individually.
+
+    //=> 8.1 Methods
+    //Methods, which are functions that are members of some object.
+
+    //=> 8.2 Local functions
+    /*Helper function names can pollute the program namespace.
+    In Java, your main tool for this purpose is the private methods (also available in scala)
+    Other approach -> Local functions: define functions inside other functions. Just like local variables
+    Local functions can access the parameters of their enclosing function.
+    */
+    def processFile(filename: String, width: Int) {
+      def processLine(line: String) {
+        if (line.length > width)
+          println(filename +": "+ line)
+      }
+      val source = Source.fromResource(filename)
+      for (line <- source.getLines())
+        processLine(line)
+    }
+    processFile("textFile1.txt", 10)
+
+    //=> 8.3 First-class functions
+    //One can write down functions as unnamed literals and then pass them around as values.
+    //FUNCTION LITERAL: A function with no name in Scala source code: (x: Int, y: Int) => x + y
+    // A function literal is compiled into a class that when instantiated at runtime is a function value.
+    //FUNCTION VALUE: A function object that can be invoked just like any other function.
+    //  A function value is “invoked” when its .apply() method is called.
+    //  Every function value is an instance of some class that extends one of several FunctionN traits in package scala
+    val increase = (x: Int) => x + 1
+    println(increase(3))
+    val someNumbers = List(-11, -10, -5, 0, 5, 10)
+    someNumbers.foreach((x: Int) => print(x + ","))
+    println
+
+    //=> 8.4 Short forms of function literals
+    //Allow to remove clutter from your code.
+    //Start by writing a function literal without the argument type,
+    // and, if the compiler gets confused, add in the type.
+    //TARGET TYPING : the targeted usage of an expression is allowed to influence the typing of that expression
+    //Leave out parentheses around a parameter whose type is inferred.
+    someNumbers.filter(x => x < 0).foreach(print)
+    println
+
+    //=> 8.5 Placeholder syntax
+    //Use underscores as placeholders for one or more parameters,
+    // so long as each parameter appears only one time within the function literal.
+    // Multiple underscores mean multiple parameters, not reuse of a single parameter repeatedly
+    someNumbers.filter(_ < 0).foreach(print)
+    println
+    var f = (x: Int, y :Int)  =>  x + y
+    println(f(5, 10))
+        f = (_: Int) + (_: Int)
+    println(f(5, 10))
+
+    //PARTIALLY APPLIED FUNCTION: A function that’s used in an expression and that misses some of its arguments.
+    // For instance, if function f has type Int => Int => Int, then f and f(1) are partially applied functions.
+    def sum(a: Int, b: Int, c: Int) = a + b + c
+    val a = sum _ // <= This is as a way to transform a def into a function value
+    //The Scala compiler instantiates a function value that takes the three integer parameters missing
+    // from the partially applied function expression, sum _, and assigns a reference to that new function
+    // value to the variable a. When you apply three arguments to this new function value,
+    // it will turn around and invoke sum, passing in those same three arguments:
+    println(a(1, 2, 3))
+    println(a.apply(1, 2, 3))
+    println(sum(1, 2, 3)) //but not sum.apply() as it is not an instantiated function value (object with apply method implementing trait FunctionN)
+  }
 
   def chapter_7_built_in_control_structures(args: Array[String]): Unit = {
     println("===> CHAPTER 7 <===")
@@ -135,6 +211,173 @@ object HelloWorld {
     // in the iteration clauses. In this case the result is an Array[File] , because
     // filesHere is an array and the type of the yielded expression is File .
     // Syntax : for {clauses...} yield {body...}
+
+    //=> 7.4 Exception handling with try expressions
+
+    //==> Throwing exceptions
+    /*
+     It is safe to treat a thrown exception as any kind of value whatsoever.
+     Any context that tries to use the return from a throw will never get to do so, and thus no harm will come.
+     Technically, an exception throw has type Nothing
+     In the following, one branch of an if computes a value, while the other throws an exception and computes Nothing
+     */
+    val n = 4
+    val half = if (n % 2 == 0) n/2 else throw new RuntimeException("n must be even")
+    println("after exception if n is odd")
+
+    //==> Catching exceptions; The finally clause
+    /*
+      Scala does not require you to catch checked exceptions !!!
+      The syntax for catch clauses was chosen for its consistency with an important part of Scala: PATTERN MATCHING
+     */
+    val file1: FileReader = null
+    try {
+      val file1 = new FileReader("input.txt")
+      // Use and close file
+    } catch {
+      // If the exception is of neither type, the try-catch will terminate and the exception will propagate further
+      case ex: FileNotFoundException => println("input.txt not found: " + ex.getLocalizedMessage)// Handle missing file
+      case ex: IOException => println("error while reading input.txt: " + ex.getLocalizedMessage)// Handle other I/O error
+    } finally {
+      //file1.close()  // Be sure to close the file
+    }
+    println("after file not found exception handling")
+
+    //==> Yielding a value
+    //try-catch-finally results in a value
+    //The default case is specified with an underscore (_), a WILDCARD SYMBOL
+    // frequently used in Scala as a placeholder for a completely unknown value
+    def urlFor(path: String) =
+      try {
+        new URL(path)
+      } catch {
+        case e: MalformedURLException =>
+          new URL("http://www.scala-lang.org")
+      }
+    val testUrl = urlFor("HttpWrongFormat://helloworld.com")
+    println(testUrl)
+
+    //=> 7.5 Match expressions
+    // In general a match expression lets you select using arbitrary patterns.
+    // Match expressions result in a value.
+    // Instead the break is implicit, and there is no fall through from one alternative to the next.
+    val firstArg = if (args.length > 0) args(0) else "nothing which matches"
+    val friend =
+      firstArg match {
+        case "salt" => "pepper"
+        case "chips" => "salsa"
+        case "eggs" => "bacon"
+        case _ => "huh?"
+      }
+    println(friend)
+
+    //=> 7.6 Living without break and continue
+    //The simplest approach is to replace every continue by an if and ev- ery break by a boolean variable.
+    // The boolean variable indicates whether the enclosing while loop should continue
+    //Searching through an argument list for a string that ends with “.scala”
+    /* JAVA Style
+      int i = 0;                // This is Java
+      boolean foundIt = false;
+      while (i < args.length) {
+        if (args[i].startsWith("-")) {
+          i = i + 1;
+          continue;
+        }
+        if (args[i].endsWith(".scala")) {
+          foundIt = true;
+          break;
+        }
+        i = i + 1;
+      }
+     */
+    // Translated to SCALA
+    var i = 0
+    var foundIt = false
+    while (i < args.length && !foundIt) {
+      if (!args(i).startsWith("-")) {
+        if (args(i).endsWith(".scala"))
+          foundIt = true
+      }
+      i=i+1
+    }
+    //SCALA with tail recursion to substitute for looping ...
+    def searchFrom(i: Int): Int =
+      if (i >= args.length) -1
+      else if (args(i).startsWith("-")) searchFrom(i + 1)
+      else if (args(i).endsWith(".scala")) i
+      else searchFrom(i + 1)
+    i = searchFrom(0)
+
+    //IF break is REALLY needed in SCALA...
+    /*
+      The Breaks class implements break by throwing an exception that is caught
+      by an enclosing application of the breakable method.
+     */
+    val in = new BufferedReader(new InputStreamReader(System.in))
+    breakable {
+      while (true) {
+        println("? (type enter to continue) ")
+        break()
+        if (in.readLine() == "") break
+      }
+    }
+
+    //=> 7.7 Variable scope
+    /*
+     Scala’s scoping rules are almost identical to Java’s.
+     One difference between Java and Scala exists, however,
+     in that Scala allows you to define variables of the same name in nested scopes.
+     In a Scala program, an inner variable is said to shadow a like-named outer variable,
+     because the outer variable becomes invisible in the inner scope.
+     */
+
+    //The reason you can do this is that, conceptually, the interpreter creates a new nested scope
+    // for each new statement you type in :
+    /*
+    scala> val a = 1
+    a: Int = 1
+    scala> val a = 2
+    a: Int = 2
+    scala> println(a)
+    */
+
+    //=> 7.8 Refactoring imperative-style code
+    //Imperative style code:
+    def printMultiTable() {
+      var i = 1
+      while (i <= 10) {
+        var j = 1
+        while (j <= 10) {
+          val prod = (i * j).toString
+          var k = prod.length
+          while (k < 4) { print(" "); k += 1 }
+          print(prod)
+          j += 1 }
+        println()
+        i += 1
+      }
+    }
+    printMultiTable()
+    println()
+
+    //Functional style code:
+      //Returns a row as a sequence
+    def makeRowSeq(row: Int) =
+      for (col <- 1 to 10) yield {
+        val prod = (row * col).toString
+        val padding = " " * (4 - prod.length)
+        padding + prod
+      }
+      // Returns a row as a string
+    def makeRow(row: Int) = makeRowSeq(row).mkString
+      // Returns table as a string with one row per line
+    def multiTable() = {
+      val tableSeq = // a sequence of row strings
+        for (row <- 1 to 10)
+          yield makeRow(row)
+      tableSeq.mkString("\n")
+    }
+    println(multiTable())
 
     println()
     println()
