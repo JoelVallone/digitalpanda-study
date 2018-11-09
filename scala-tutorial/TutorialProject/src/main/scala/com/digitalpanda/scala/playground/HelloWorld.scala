@@ -1,6 +1,7 @@
 package com.digitalpanda.scala.playground
 
 import java.io._
+
 import scala.util.control.Breaks._
 import java.net.{MalformedURLException, URL}
 
@@ -9,14 +10,193 @@ import scala.io.Source
 object HelloWorld {
 
 
+  def chapterSeparator(chapter: Array[String] => Unit, chapterNumber: Int)(args: Array[String]): Unit = {
+    println("===> CHAPTER " + chapterNumber + " <===")
+    chapter(args)
+    println()
+    println()
+  }
+
   def main(args: Array[String]): Unit = {
-    chapter_2_first_steps_in_Scala(args)
-    chapter_3_next_steps_in_Scala(args)
-    chapter_4_classes_and_objects(args)
-    chapter_5_basic_types_and_operations(args)
-    chapter_6_functional_objects(args)
-    chapter_7_built_in_control_structures(args)
-    chapter_8_functions_and_closures(args)
+
+    val chapter_two_with_formatting = chapterSeparator(chapter_2_first_steps_in_Scala, 2) _
+    chapter_two_with_formatting(args)
+    chapterSeparator(chapter_3_next_steps_in_Scala,3)(args)
+    chapterSeparator(chapter_4_classes_and_objects,4)(args)
+    chapterSeparator(chapter_5_basic_types_and_operations,5)(args)
+    chapterSeparator(chapter_6_functional_objects,6)(args)
+    chapterSeparator(chapter_7_built_in_control_structures,7)(args)
+    chapterSeparator(chapter_8_functions_and_closures,8)(args)
+    chapterSeparator(chapter_9_control_abstraction,9)(args)
+    chapterSeparator(chapter_10_composition_and_inheritance,10)(args)
+  }
+
+  def chapter_10_composition_and_inheritance(args: Array[String]): Unit = {
+    //Go into the details of Scala’s support for object-oriented programming.
+    // We’ll compare two fundamental relationships between classes: composition and inheritance.
+    // Composition means one class holds a reference to another, using the referenced class to help it fulfill
+    // its mission. Inheritance is the superclass/subclass relationship.
+
+    //10.1 A two-dimensional layout library
+    //As a running example in this chapter, we’ll create a library for building and rendering two-dimensional
+    // layout elements. Each element will represent a rectangle filled with text.
+  }
+
+  def chapter_9_control_abstraction(args: Array[String]): Unit = {
+    //In this chapter, we’ll show you how to apply function values to create new control abstractions.
+    // Along the way, you’ll also learn about currying and by-name parameters
+
+    //=> 9.1 Reducing code duplication
+    //HIGHER-ORDER FUNCTIONS: functions that take functions as parameters.
+    // They give you extra opportunities to condense and simplify code.
+    // One benefit of higher-order functions is they enable you to create control abstractions
+    // that allow you to reduce code duplication.
+    object FileMatcher {
+
+      private def filesHere = new java.io.File(".").listFiles
+
+      def filesEnding(query: String) =
+        filesMatching((fileName: String) => fileName.endsWith(query)) // <= Same as : _.endsWith(query)
+
+      def filesContaining(query: String) =
+        filesMatching((fileName) => fileName.contains(query)) // <= Same as : _.contains(query)
+
+      def filesRegex(query: String) =
+        //The underscore is a placeholder for the gile name parameter.
+        filesMatching(_.matches(query))
+
+      def filesMatching(matcher: String => Boolean) =
+        for (file <- filesHere; if matcher(file.getName))
+          yield file
+
+    }
+
+    //=> 9.2 Simplifying client code
+    // By using higher order functions.
+    def containsNegIter(nums: List[Int]): Boolean = {
+      var exists = false
+      for (num <- nums)
+        if (num < 0)
+          exists = true
+      exists
+    }
+    println(containsNegIter(List(1, 2, -3, 4)))
+    /*
+      The exists method bellow represents a control abstraction relying on higher order functions (input of exists).
+      It is a special-purpose looping construct provided by the Scala library rather than being built into the Scala
+      language like while or for.
+      In the previous section, the higher-order function, filesMatching, reduces code duplication in the implementation
+      of the object FileMatcher. The exists method provides a similar benefit, but because exists is public in
+      Scala’s collections API, the code duplication it reduces is client code of that API.
+     */
+    def containsNeg(nums: List[Int]): Boolean = nums.exists(_ < 0)
+    println(containsNeg(List(1, 2, -3, 4)))
+
+    //=> 9.3 Currying
+    //CURRYING: A way to write functions with multiple parameter lists.
+    // For instance def f(x: Int)(y: Int) is a curried function with two parameter lists.
+    // A curried function is applied by passing several arguments lists, as in: f(3)(4).
+    // However, it is also possible to write a partial application of a curried function, such as f(3).
+    def plainOldSum(x: Int, y: Int) = x + y
+    println(plainOldSum(1, 2))
+    def curriedSum(x: Int)(y: Int) = x + y
+    println(curriedSum(1)(2))
+    //When you invoke curriedSum, you actually get two traditional function invocations back to back.
+    // The first function invocation takes a single Int parameter named x,
+    // and returns a function value for the second function. This second function takes the Int parameter y.
+    // THe currying process is similar to the following:
+    def first(x: Int) = (y: Int) => x + y
+    var second = first(1)
+    println(second(2))
+    //The underscore in curriedSum(1) _ is a placeholder for the second parameter list
+    val secondSecond = curriedSum(1) _
+    println(secondSecond(2))
+
+    //=> 9.4 Writing new control structures
+    //In languages with first-class functions, you can effectively make new control structures even though
+    // the syntax of the language is fixed. All you need to do is create methods that take functions as arguments.
+    def twice(op: Double => Double, x: Double) = op(op(x))
+    println(twice(_ + 1, 5))
+    //Any time you find a control pattern repeated in multiple parts of your code,
+    // you should think about implementing it as a new control structure.
+    // Example : open a resource, operate on it, and then close the resource.
+    def withPrintWriterOldSchool(file: File, op: PrintWriter => Unit) {
+      val writer = new PrintWriter(file)
+      try {
+        op(writer)
+      } finally {
+        writer.close()
+      }
+    }
+    //The LOAN PATTERN, because a control-abstraction function, such as withPrintWriter,
+    // opens a resource and “loans” it to a function. For instance, withPrintWriter in the previous example
+    // loans a PrintWriter to the function, op. When the function completes,
+    // it signals that it no longer needs the “borrowed” resource.
+    withPrintWriterOldSchool(
+      new File("date.txt"),
+      writer => writer.println(new java.util.Date)
+    )
+    //One way in which you can make the client code look a bit more like a built-in control structure is
+    // to use curly braces instead of parentheses to surround the argument list.
+    //In any method invocation in Scala in which you’re passing in exactly ONE argument,
+    // you can opt to use curly braces to surround the argument instead of parentheses.
+    //The purpose of this ability to substitute curly braces for parentheses for passing in one argument is to
+    // enable client programmers to write function literals between curly braces : { (a:Int, b:Int) => a + b }
+    println("Hello, world!")
+    println { "Hello, world!" }
+    def withPrintWriter(file: File)(op: PrintWriter => Unit) {
+      val writer = new PrintWriter(file)
+      try {
+        op(writer)
+      } finally {
+        writer.close()
+      }
+    }
+    val file = new File("date.txt")
+    withPrintWriter(file) {
+      writer => writer.println(new java.util.Date)
+    }
+    //=> 9.5 By-name parameters
+    var assertionsEnabled = true
+    def myAssert(predicate: () => Boolean) =
+      if (assertionsEnabled && !predicate())
+        throw new AssertionError
+    myAssert{ () => 5 > 3 }
+    //  myAssert(5 > 3) // <= Not allowed
+    //BY NAME PARAMETER : when function to pass has no input.
+    //  A by-name type, in which the empty parameter list, (), is left out, is only allowed for parameters.
+    //  Lazy evaluation : evaluate by name expression when called into and not when input to the higher order function.
+    def byNameAssert(predicate: => Boolean) =
+      if (assertionsEnabled && !predicate)
+        throw new AssertionError
+    byNameAssert{5 > 3}
+    //Nevertheless, one difference exists between these two approaches (byNameAssert, boolAssert) that is important to note.
+    // Because the type of boolAssert’s parameter is Boolean, the expression inside the parentheses in
+    // boolAssert(5 > 3) is evaluated be- fore the call to boolAssert.
+    // The expression 5 > 3 yields true, which is passed to boolAssert.
+    // By contrast, because the type of byNameAssert’s predicate parameter is => Boolean,
+    // the expression inside the parentheses in byNameAssert(5 > 3) is not evaluated before the call to byNameAssert.
+    // Instead a function value will be created whose apply method will evaluate 5 > 3,
+    // and this function value will be passed to byNameAssert.
+    def boolAssert(predicate: Boolean) =
+      if (assertionsEnabled && !predicate)
+        throw new AssertionError
+    boolAssert(5 > 3)
+
+    assertionsEnabled = false
+    def byNameAssert2(predicate: => Boolean) =
+      if (assertionsEnabled && !predicate)
+        throw new AssertionError
+    def boolAssert2(predicate: Boolean) =
+      if (assertionsEnabled && !predicate)
+        throw new AssertionError
+    val x = 1
+    byNameAssert2(x / 0 == 0)
+    try {
+      boolAssert2(5 > 3)
+    } catch {
+      case e : Exception => e.printStackTrace()
+    }
   }
 
 
@@ -78,21 +258,102 @@ object HelloWorld {
         f = (_: Int) + (_: Int)
     println(f(5, 10))
 
-    //PARTIALLY APPLIED FUNCTION: A function that’s used in an expression and that misses some of its arguments.
+    //=> 8.6 PARTIALLY APPLIED FUNCTION: A function that’s used in an expression and that misses some of its arguments.
     // For instance, if function f has type Int => Int => Int, then f and f(1) are partially applied functions.
     def sum(a: Int, b: Int, c: Int) = a + b + c
-    val a = sum _ // <= This is as a way to transform a def into a function value
+    val a = sum _ // <= This is as a way to transform a def into a function value (partial function in this case)
+    val b = sum (1,_:Int,3) // <= This is as a way to transform a def into a function value (partial function in this case)
     //The Scala compiler instantiates a function value that takes the three integer parameters missing
     // from the partially applied function expression, sum _, and assigns a reference to that new function
     // value to the variable a. When you apply three arguments to this new function value,
     // it will turn around and invoke sum, passing in those same three arguments:
     println(a(1, 2, 3))
     println(a.apply(1, 2, 3))
+    println(b(2))
     println(sum(1, 2, 3)) //but not sum.apply() as it is not an instantiated function value (object with apply method implementing trait FunctionN)
+
+    //=> 8.7 Closures
+    //A FREE VARIABLE of an expression is a variable that’s used inside the expression but not defined inside the expression
+    //A BOUND VARIABLE of an expression is a variable that’s both used and defined inside the expression.
+    //The function value (the object) that’s created at runtime from this function literal is called a CLOSURE.
+    //The name arises from the act of “closing” the function literal by “capturing” the bindings of its free variable
+    //The resulting function value, which will contain a reference (=>outside change reflected) to the captured more variable,
+    //The instance used in the closure is the one that was active at the time the closure was created
+    def makeIncreaser(more: Int) = (x: Int) => x + more
+    val inc1 = makeIncreaser(1)
+    val inc9999 = makeIncreaser(9999)
+    println(inc1(10))
+    println(inc9999(10))
+
+    //=> 8.8 Special function call forms
+    //==> Repeated parameters
+    //The last parameter to a function may be repeated.
+    // This allows clients to pass variable length argument lists to the function.
+    // The type of the repeated parameter is an Array of the declared type of the parameter.
+    def echo(args: String*) =
+      { for (arg <- args) print(arg + " "); println() }
+    echo("One!")
+    echo("One", "Two", "Three")
+    val arr = Array("What's", "up", "doc?")
+    // Pass each element of arr as its own argu- ment to echo, rather than all of it as a single argument
+    echo(arr: _*)
+    echo(arr: _*)
+
+    //==> Named arguments
+    //The syntax is simply that each argument is preceded by a parameter name and an equals sign.
+    def speed(nil: Int, distance: Float, time: Float): Float =
+      distance / time
+    println(speed(42, 100,10))
+    //It is also possible to mix positional and named arguments.
+    // In that case, the positional arguments come first.
+    println(speed(42, time = 10, distance = 100))
+
+    //==> Default parameter values
+    //Default parameters are especially helpful when used in combination with named parameters
+    def printTime(out: java.io.PrintStream = System.out, divisor: Int = 1) =
+      out.println("time = "+ System.currentTimeMillis()/divisor)
+    printTime()
+    printTime(out = System.err)
+    printTime(System.err)
+    printTime(divisor = 1000)
+
+    //=> 8.9 Tail recursion
+    //TAIL RECURSIVE FUNCTIONS: Functions which call themselves as their last action, are called tail recursive.
+    //Often, a recursive solution is more elegant and concise than a loop-based one.
+    // If the solution is tail recursive, there won’t be any runtime overhead to be paid.
+    //==> Recursive, but non tail recursive, function
+    def boom(x: Int): Int =
+      if (x == 0) throw new Exception("boom!")
+      else boom(x - 1) + 1
+    try {
+      boom(10)
+    } catch {
+      case e: Exception => e.printStackTrace()
+    }
+    //==> Tail recursive function
+    def bang(x: Int): Int =
+      if (x == 0) throw new Exception("bang!")
+      else bang(x - 1)
+    try {
+      bang(10)
+    } catch {
+      case e: Exception => e.printStackTrace()
+    }
+    //Scala only optimizes directly recursive calls back to the same func- tion making the call.
+    // If the recursion is indirect, as in the following example of two mutually recursive functions,
+    // no optimization is possible:
+    def isEven(x: Int): Boolean =
+      if (x == 0) true else isOdd(x - 1)
+    def isOdd(x: Int): Boolean =
+      if (x == 0) false else isEven(x - 1)
+    //You also won’t get a tail-call optimization if the final call goes to a function value:
+    // val funValue = nestedFun _
+    // def nestedFun(x: Int) {
+    //  if (x != 0) { println(x); funValue(x - 1) }
+    //}
   }
 
   def chapter_7_built_in_control_structures(args: Array[String]): Unit = {
-    println("===> CHAPTER 7 <===")
     // Instead of accumulating one higher-level control structure after another
     // in the base syntax, Scala accumulates them in libraries.
     //Almost all of Scala’s control structures result in some value
@@ -378,13 +639,9 @@ object HelloWorld {
       tableSeq.mkString("\n")
     }
     println(multiTable())
-
-    println()
-    println()
   }
 
   def chapter_6_functional_objects(args: Array[String]): Unit = {
-    println("===> CHAPTER 6 <===")
     //Functional objects : objects that do not have any mutable state.
     /*
     + IMMUTABLE OBJECTS are often easier to
@@ -633,15 +890,12 @@ object HelloWorld {
     //give rise to client code that is hard to read and understand
     //The goal you should keep in mind as you design libraries is not merely
     //enabling concise client code, but readable, understandable client code
-    println("")
-    println("")
   }
 
 
 
 
   def chapter_5_basic_types_and_operations(args: Array[String]): Unit = {
-    println("===> CHAPTER 5 <===")
     //=> 5.1 Some basic types
     //Scala’s basic types have the exact same ranges as the corresponding types in Java => direct cast to java primitive types
     //Java’s basic types and operators have the same meaning in Scala. In the following, will only show differences
@@ -732,14 +986,11 @@ object HelloWorld {
       be described in detail in Chapter 21. All you need to know for now is that for
       each basic type described in this chapter, there is also a “RICH WRAPPER” that
       provides several additional methods. */
-    println("")
-    println("")
   }
 
 
 
   def chapter_4_classes_and_objects(args: Array[String]): Unit = {
-    println("===> CHAPTER 4 <===")
     //=> 4.1 Classes, fields, and methods
     //Class definition:  See ChecksumAccumulator.scala
 
@@ -774,9 +1025,6 @@ object HelloWorld {
 
     //=> 4.5 Application trait (do not use)
     // See FallWinterSpringSummer object
-
-    println("")
-    println("")
   }
 
 
@@ -793,7 +1041,6 @@ object HelloWorld {
 
 
   def chapter_3_next_steps_in_Scala(args : Array[String]): Unit = {
-    println("===> CHAPTER 3 <===")
     //instantiate an object:
     val big = new java.math.BigInteger("123")
 
@@ -880,12 +1127,9 @@ object HelloWorld {
       println(padding + line.length + " | " + line)
 
     }
-    println("")
-    println("")
   }
 
   def chapter_2_first_steps_in_Scala(args : Array[String]): Unit = {
-    println("===> CHAPTER 2 <===")
     println("Hello, world!")
     //variable:
     var msg: String = "plop"
@@ -909,8 +1153,5 @@ object HelloWorld {
         > scala examples.scala
         //examples.scala:
           println("Hello, " + args(0) + "!") */
-
-    println("")
-    println("")
   }
 }
