@@ -29,6 +29,112 @@ object HelloWorld {
     chapterSeparator(chapter_8_functions_and_closures,8)(args)
     chapterSeparator(chapter_9_control_abstraction,9)(args)
     chapterSeparator(chapter_10_composition_and_inheritance,10)(args)
+    chapterSeparator(chapter_11_scala_hierarchy,11)(args)
+    chapterSeparator(chapter_12_traits,11)(args)
+  }
+
+  def chapter_12_traits(args: Array[String]): Unit = {
+    //A trait encapsulates method and field definitions, which can then be reused by mixing them into classes.
+    // Unlike class inheritance, in which each class must inherit from just one superclass,
+    // a class can mix in any number of traits.
+
+    class plop {}
+    //=> 12.1 How traits work
+    trait Philosophical extends plop {
+      def philosophize() {
+        println("I consume memory, therefore I am!")
+      }
+    }
+    //This Philosophical trait does not declare a superclass, so like a class, it has the default superclass of AnyRef.
+    //Once a trait is defined, it can be mixed in to a class using either the extends or with keywords.
+    // Scala programmers “mix in” traits rather than inherit from them, because mixing in a trait has
+    // important differences from the multiple inheritance found in many other languages.
+    class Frog extends Philosophical {
+      override def toString = "green"
+    }
+    //You can use the extends keyword to mix in a trait; in that case you implicitly inherit the trait’s superclass (plop).
+    new Frog philosophize()
+  }
+
+  def chapter_11_scala_hierarchy(args: Array[String]): Unit = {
+    // We will look at Scala’s class hierarchy as a whole.
+    //In Scala, every class inherits from a common superclass named Any.
+    // Because every class is a subclass of Any, the methods defined in Any are “universal” methods:
+    // they may be invoked on any object.
+    //Scala also defines some interesting classes at the bottom of the hierarchy,
+    // Null and Nothing, which essentially act as common subclasses.
+    // For example, just as Any is a superclass of every other class, Nothing is a subclass of every other class.
+
+    //=> 11.1 Scala's class hierarchy
+    //==> Any:
+    // At the top of the hierarchy is class Any, which defines methods that include the following:
+    //  final def ==(that: Any): Boolean
+    //  final def !=(that: Any): Boolean
+    //  def equals(that: Any): Boolean
+    //  def ##: Int
+    //  def hashCode: Int
+    //  def toString: String
+    // The root class Any has two subclasses: AnyVal and AnyRef.
+    //==> Value classes : AnyVal
+    //AnyVal is the parent class of every built-in value class in Scala.
+    //There are nine such value classes: Byte, Short, Char, Int, Long, Float, Double, Boolean, and Unit.
+    // The first eight of these correspond to Java’s primitive types, and their values are represented at run time
+    // as Java’s primitive values.
+    // The instances of these classes are all written as literals in Scala. For example, 42 is an instance of Int
+    // One cannot create instances of these classes using new: value classes are all defined to be both abstract and final.
+    //The other value class, Unit, corresponds roughly to Java’s void type; it is used as the result type
+    // of a method that does not otherwise return an interest- ing result.
+    // Unit has a single instance value, which is written (),
+    //The value classes support the usual arithmetic and boolean operators as methods
+    //The methods min, max, until, to, and abs are all defined in a class scala.runtime.RichInt, and
+    // there is an implicit conversion from class Int to RichInt. The conversion is applied whenever
+    // a method is invoked on an Int that is undefined in Int but defined in RichInt.
+    // Similar “booster classes” and implicit conversions exist for the other value classes.
+    //==> Reference classes: AnyRef
+    //This is the base class of all reference classes in Scala.
+    //AnyRef is in fact just an alias for class java.lang.Object
+
+    //=> 11.2 How primitives are implemented
+    //In fact, Scala stores integers in the same way as Java: as 32-bit words.
+    //However, Scala uses the “backup” class java.lang.Integer whenever an integer needs to be seen as a (Java) object.
+    //All this sounds a lot like auto-boxing in Java 5 and it is indeed quite similar. There’s one crucial difference
+    /* This is Java
+    boolean isEqual(Integer x, Integer y) {
+      return x == y;
+    }
+    System.out.println(isEqual(421, 421)); // <= displays false because two different objects : not the case with Scala
+    */
+    //In fact, the equality operation == in Scala is designed to be transparent with respect to the type’s representation.
+    // For value types, it is the natural (numeric or boolean) equality.
+    // For reference types other than Java’s boxed numeric types, == is treated as an alias of
+    // the equals method inherited from Object !
+    //In Scala, string comparison works as it should:
+    val x = "abcd".substring(2)
+    val y = "abcd".substring(2)
+    println("x=" + x )
+    println("y=" + y )
+    println("x equals y : " + (x equals y))
+    println("x == y : " + (x == y))
+    //AnyRef defines an additional eq method, which cannot be overridden and is implemented as reference equality
+    println("x eq y : " + (x eq y)) // <= un-overridable reference equality defined in AnyRef
+
+    //=> 11.3 Bottom types
+    //At the bottom of the type hierarchy is the two classes scala.Null and scala.Nothing
+    //==> Null
+    //Is a subclass of every reference class (i.e., every class that itself inherits from AnyRef).
+    //==> Nothing
+    //Is at the very bottom of Scala’s class hierarchy; it is a sub- type of every other type
+    // However, there exist no values of this type whatso-ever.
+    // Why does it make sense to have a type without values? One use of Nothing is that it signals abnormal termination.
+    // For instance there’s the error method in the Predef object of Scala’s standard library,
+    // which is defined like this:
+    def error(message: String): Nothing =
+      throw new RuntimeException(message)
+    //Because Nothing is a subtype of every other type, you can use methods like error in very flexible ways !
+    // For instance:
+    def divide(x: Int, y: Int): Int =
+      if (y != 0) x / y
+      else error("can't divide by zero")
   }
 
   def chapter_10_composition_and_inheritance(args: Array[String]): Unit = {
@@ -37,10 +143,298 @@ object HelloWorld {
     // Composition means one class holds a reference to another, using the referenced class to help it fulfill
     // its mission. Inheritance is the superclass/subclass relationship.
 
-    //10.1 A two-dimensional layout library
+    //=> 10.1 A two-dimensional layout library
     //As a running example in this chapter, we’ll create a library for building and rendering two-dimensional
     // layout elements. Each element will represent a rectangle filled with text.
+
+    //=> 10.2 Abstract classes
+    //In this class, contents is declared as a method that has no implementation.
+    // In other words, the method is an ABSTRACT MEMBER of class Element2.
+    //Unlike Java, no abstract modifier is necessary (or allowed) on method declarations.
+    //Methods that do have an implementation are called CONCRETE.
+    //Class Element2 DECLARES the abstract method contents, but currently DEFINES no concrete methods.
+    abstract class Element1 {
+      def contents: Array[String]
+    }
+
+    //=> 10.3 defining parameter-less methods
+    //The recommended convention is to use a parameter-less method whenever there are no parameters AND
+    // the method accesses mutable state only by reading fields of the containing object
+    // (in particular, it does not change mutable state). This convention supports the UNIFORM ACCESS PRINCIPLE,
+    // which says that client code should not be affected by a decision to implement an attribute as a field or method
+    //The only difference is that field accesses might be slightly faster than method invocations,
+    // because the field values are pre-computed when the class is initialized.
+    abstract class Element2 {
+      def contents: Array[String]
+      def height: Int = contents.length
+      def width: Int = if (height == 0) 0 else contents(0).length
+      def demo() {
+        println("Element2's implementation invoked")
+      }
+    }
+    //In principle it’s possible to leave out all empty parentheses in Scala function calls.
+    // However, it is recommended to still write the empty parentheses when the invoked method represents more
+    // than a property of its receiver object.
+
+    //=> 10.4 Extending classes
+    //To instantiate an element, therefore, we will need to create a subclass that extends Element2 and
+    // implements the abstract contents method.
+    //Such an extends clause has two effects: it makes class ArrayElement inherit all non-private members
+    // from class Element2, and it makes the type ArrayElement a SUBTYPE of the type Element2.
+    // Given ArrayElement extends Element2, class ArrayElement is called a SUBCLASS of class Element2.
+    // Conversely, Element2 is a SUPERCLASS of ArrayElement.
+    //If you leave out an extends clause, the Scala compiler implicitly assumes your class extends from scala.
+    // AnyRef, which on the Java platform is the same as class java.lang.Object
+    //INHERITANCE means that all members of the superclass are also members of the subclass, with two exceptions.
+    // First, private members of the superclass are not inherited in a subclass.
+    // Second, a member of a superclass is not inherited if a member with the same name and parameters is already
+    // implemented in the subclass. In that case we say the member of the subclass OVERRIDES  the member of the superclass.
+    class ArrayElement(conts: Array[String]) extends Element2 {
+      def contents: Array[String] = conts // <= This relationship is called COMPOSITION because class ArrayElement is “composed” out of class Array[String]
+      override def demo() {
+        println("ArrayElement's implementation invoked")
+      }
+    }
+    //SUBTYPING means that a value of the subclass can be used wherever a
+    //value of the superclass is required
+    val e: Element2 = new ArrayElement(Array("hello"))
+
+    //=> 10.5 Overriding methods and fields
+    //Fields and methods belong to the same namespace.
+    // This makes it possible for a field to override a parameter-less method.
+    //Field contents (defined with a val) in this version of ArrayElement is a perfectly good implementation
+    // of the parameter-less method contents (declared with a def) in class Element2.
+    class ArrayElement2(conts: Array[String]) extends Element2 {
+      val contents: Array[String] = conts
+    }
+    //Scala has just two NAMESPACES FOR DEFINITIONS in place of Java’s four.
+    // Java’s four namespaces are fields, methods, types, and packages. By contrast, Scala’s two namespaces are:
+    //• values (fields, methods, packages, and singleton objects)
+    //• types (class and trait names)
+    //The reason Scala places fields and methods into the same namespace is precisely so you can override a
+    // parameter-less method with a val, something you can’t do with Java.
+    //The reason that packages share the same namespace as fields and methods in Scala is to enable you to
+    // import packages in addition to just importing the names of types, and the fields and methods of singleton objects.
+
+    //In ArrayElement2, You can avoid the "code smell" by combining the parameter and the field
+    // in a single parametric field definition:
+    class ArrayElement3(val contents: Array[String]) extends Element2
+    //You can also prefix a class parameter with var, in which case the correspond- ing field would be re-assignable.
+
+    //=> 10.7 Invoking superclass constructors
+    //Scala requires an override modifier for all members that override a concrete member in a parent class.
+    class LineElement(s: String) extends ArrayElement(Array(s)) {
+      override def width = s.length
+
+      override def height = 1
+
+      override def demo() {
+        println("LineElement's implementation invoked")
+      }
+    }
+
+    //=> 10.8 Using override modifiers
+    //The override rule provides useful information for the compiler that helps avoid some hard-to-catch errors
+    // and makes system evolution safer
+    // “accidental overrides” are the most common manifestation of what is called the “fragile base class” problem.
+    // The problem is that if you add new members to base classes (which we usually call superclasses)
+    // in a class hierarchy, you risk breaking client code (which happens to use the same method name before its introduction in the superclass).
+
+    //=> 10.9 Polymorphism and dynamic binding
+    //SUBTYPE POLYMORPHISM: A variable of type Element2 could refer to an object of type ArrayElement.
+    //Additional Element2 sub type : UniformElement
+    class UniformElement(
+                          ch: Char,
+                          override val width: Int,
+                          override val height: Int
+                        ) extends Element2 {
+      private val line = ch.toString * width
+
+      def contents = Array.fill(height)(line)
+    }
+    //Method invocations on variables and expressions are DYNAMICALLY BOUND.
+    // This means that the actual method implementation invoked is determined at run time based on the class of
+    // the object, not the type of the variable or expression.
+    val e1: Element2 = new ArrayElement(Array("hello", "world"))
+    val ae: ArrayElement = new LineElement("hello")
+    val e2: Element2 = ae
+    val e3: Element2 = new UniformElement('x', 2, 3)
+
+    def invokeDemo(e: Element2) {
+      e.demo()
+    }
+
+    invokeDemo(e1)
+    invokeDemo(e2)
+
+    //=> 10.10 Declaring final members
+    //final modifier: ensures that a member cannot be overridden by sub-classes or a class cannot have sub-classes.
+
+    //=> 10.11 Using composition and inheritance
+    //Do you think clients would ever need to use a LineElement as an ArrayElement?
+    //Indeed, in the previous version, LineElement had an inheritance relationship with ArrayElement,
+    // from which it inherited contents. It now has a composition relationship with Array: it holds
+    // a reference to an array of strings from its own contents field
+    class LineElement2(s: String) extends Element2 {
+      val contents = Array(s)
+
+      override def width = s.length
+
+      override def height = 1
+    }
+
+    //=> 10.12 implementing above, beside, and toString
+    /*
+    import Element2.elem
+    abstract class Element2 {
+      def contents: Array[String]
+
+      def width: Int =
+        if (height == 0) 0 else contents(0).length
+
+      def height: Int = contents.length
+
+      def above(that: Element2): Element2 =
+        elem(this.contents ++ that.contents)
+
+      def beside(that: Element2): Element2 =
+        elem(
+          for (
+            (line1, line2) <- this.contents zip that.contents // <= name both elements line1, line2 of a pair in one pattern
+          ) yield line1 + line2 // <= The for expression has a yield part and therefore yields a result.
+          // The result is of the same kind as the expression iterated over, i.e., it is an array
+        )
+
+      override def toString = contents mkString "\n"
+    }
+  */
+
+    //=> 10.13 Defining a factory object
+    //A factory object contains methods that construct other objects.
+    // Clients would then use these factory methods for object construction rather than constructing
+    // the objects directly with new.
+    //An advantage of this approach is that object creation can be centralized and the details of how objects are
+    // represented with classes can be hidden. This hiding will both make your library simpler for
+    // clients to understand, because less detail is exposed, and provide you with more opportunities to change
+    // your library’s implementation later without breaking client code.
+  /*
+    object Element2 {
+      def elem(contents: Array[String]): Element2 =
+        new ArrayElement(contents)
+
+      def elem(chr: Char, width: Int, height: Int): Element2 =
+        new UniformElement(chr, width, height)
+
+      def elem(line: String): Element2 =
+        new LineElement(line)
+    }
+*/
+    //=> 10.14 Heighten and widen
+
+    import Element42.elem42
+    object Element42 {
+
+      private class ArrayElement42(
+                                    val contents: Array[String]
+                                  ) extends Element42
+
+      private class LineElement42(s: String) extends Element42 {
+        val contents = Array(s)
+
+        override def width = s.length
+
+        override def height = 1
+      }
+
+      private class UniformElement42(
+                                      ch: Char,
+                                      override val width: Int,
+                                      override val height: Int
+                                    ) extends Element42 {
+        private val line = ch.toString * width
+
+        def contents = Array.fill(height)(line)
+      }
+
+      def elem42(contents: Array[String]): Element42 =
+        new ArrayElement42(contents)
+
+      def elem42(chr: Char, width: Int, height: Int): Element42 =
+        new UniformElement42(chr, width, height)
+
+      def elem42(line: String): Element42 =
+        new LineElement42(line)
+    }
+    abstract class Element42 {
+      def contents: Array[String]
+
+      def width: Int = contents(0).length
+
+      def height: Int = contents.length
+
+      def above(that: Element42): Element42 = {
+        val this1 = this widen that.width
+        val that1 = that widen this.width
+        elem42(this1.contents ++ that1.contents)
+      }
+
+      def beside(that: Element42): Element42 = {
+        val this1 = this heighten that.height
+        val that1 = that heighten this.height
+        elem42(
+          for ((line1, line2) <- this1.contents zip that1.contents)
+            yield line1 + line2)
+      }
+
+      def widen(w: Int): Element42 =
+        if (w <= width) this
+        else {
+          val left = elem42(' ', (w - width) / 2, height)
+          var right = elem42(' ', w - width - left.width, height)
+          left beside this beside right
+        }
+
+      def heighten(h: Int): Element42 =
+        if (h <= height) this
+        else {
+          val top = elem42(' ', width, (h - height) / 2)
+          var bot = elem42(' ', width, h - height - top.height)
+          top above this above bot
+        }
+
+      override def toString = contents mkString "\n"
+    }
+
+    //=> 10.15 Putting it all together
+    object Spiral {
+      val space = elem42(" ")
+      val corner = elem42("+")
+
+      def spiral(nEdges: Int, direction: Int): Element42 = {
+        if (nEdges == 1)
+          elem42("+")
+        else {
+          val sp = spiral(nEdges - 1, (direction + 3) % 4)
+
+          def verticalBar = elem42('|', 1, sp.height)
+
+          def horizontalBar = elem42('-', sp.width, 1)
+
+          if (direction == 0)
+            (corner beside horizontalBar) above (sp beside space)
+          else if (direction == 1)
+            (sp above space) beside (corner above verticalBar)
+          else if (direction == 2)
+            (space beside sp) above (horizontalBar beside corner)
+          else
+            (verticalBar above corner) beside (space above sp)
+        }
+      }
+    }
+    println(Spiral.spiral(6, 0))
+    println(Spiral.spiral(11, 0))
   }
+
 
   def chapter_9_control_abstraction(args: Array[String]): Unit = {
     //In this chapter, we’ll show you how to apply function values to create new control abstractions.
@@ -883,7 +1277,7 @@ object HelloWorld {
     //=> 6.12 Implicit conversions
     //Implicit conversion that automatically converts integers to rational
     // numbers when needed.
-    implicit def intToRational(x: Int): RationalV10 = new RationalV10(x)
+    implicit def castIntToRational(x: Int): RationalV10 = new RationalV10(x)
     println("2 * r = " + (2 * r).toString)
 
     //If used unartfully, both operator methods and implicit conversions can
