@@ -30,7 +30,92 @@ object HelloWorld {
     chapterSeparator(chapter_9_control_abstraction,9)(args)
     chapterSeparator(chapter_10_composition_and_inheritance,10)(args)
     chapterSeparator(chapter_11_scala_hierarchy,11)(args)
-    chapterSeparator(chapter_12_traits,11)(args)
+    chapterSeparator(chapter_12_traits,12)(args)
+    chapterSeparator(chapter_13_packages_and_imports,13)(args)
+  }
+
+  def chapter_13_packages_and_imports(args: Array[String]): Unit = {
+    /*
+    When working on a program, especially a large one, it is important to minimize coupling—the extent to
+    which the various parts of the program rely on the other parts. Low coupling reduces the risk that a small,
+    seemingly innocuous change in one part of the program will have devastating consequences in another part.
+
+    When working on the inside of a module—its implementation—you need only coordinate with other programmers working
+    on that very same module. Only when you must change the outside of a module—its interface—is it necessary to
+    coordinate with developers working on other modules.
+     */
+    //=> 13.1 Putting code in packages
+    //Scala code resides in the Java platform’s global hierarchy of packages.
+    // Code with no package are put in the "unnamed" package
+    //Because Scala code is part of the Java ecosystem, it is recommended to follow Java’s
+    // reverse-domain-name convention for Scala packages that you release to the public
+  /*
+    package com.bobsrockets.navigation
+    class Navigato
+
+    OR
+
+    package bobsrockets {
+      package navigation {
+        // In package bobsrockets.navigation
+        class Navigator
+        package tests {
+          // In package bobsrockets.navigation.tests
+          class NavigatorSuite
+        }
+      }
+    }
+   */
+    //=> 13.2 Concise access to related code
+    //If you stick to one package per file (!), then—like in Java—the only names available will be the ones defined in
+    // the current package.
+
+    //=> 13.3 Imports
+    /*
+    An import clause makes members of a package or object available by their names alone without needing to
+    prefix them by the package or object name:
+        // easy access to Fruit
+        import bobsdelights.Fruit
+        // easy access to all members of bobsdelights
+        import bobsdelights._
+        // easy access to all members of Fruits
+        import bobsdelights.Fruits._
+     */
+    //imports in Scala can ap- pear anywhere, not just at the beginning of a compilation unit.
+    /*
+      package bobsdelights
+      abstract class Fruit(
+        val name: String,
+        val color: String
+      )
+      object Fruits {
+        object Apple extends Fruit("apple", "red")
+        object Orange extends Fruit("orange", "orange")
+        object Pear extends Fruit("pear", "yellowish")
+        val menu = List(Apple, Orange, Pear)
+      }
+      def showFruit(fruit: Fruit) {
+          import fruit._
+          println(name +"s are "+ color) //<=== The subsequent println statement can refer to Fruit's name and color directly!
+      }
+    In Scala, imports:
+    • may appear anywhere
+    • may refer to objects (singleton or regular) in addition to packages
+    • let you rename and hide some of the imported members
+     */
+    //One can also import packages themselves, not just their non-package members:
+    import java.util.regex
+    class AStarB {
+      // Accesses java.util.regex.Pattern
+      val pat = regex.Pattern.compile("a*b")
+    }
+
+    //This imports just classes Pattern and ASCII from package java.util.regex
+    import java.util.regex.{Pattern, ASCII}
+    //A renaming clause is always of the form “<original-name> => <new-name>”
+    import java.sql.{Date => SDate, _} //<= rename imported class Date to Sdate and import all the rest too
+    //A clause of the form “<original-name> => _” excludes <original-name> from the names that are imported.
+    import java.sql.{Date => _, _} //<= import all except Date!
   }
 
   def chapter_12_traits(args: Array[String]): Unit = {
@@ -38,9 +123,8 @@ object HelloWorld {
     // Unlike class inheritance, in which each class must inherit from just one superclass,
     // a class can mix in any number of traits.
 
-    class plop {}
     //=> 12.1 How traits work
-    trait Philosophical extends plop {
+    trait Philosophical{
       def philosophize() {
         println("I consume memory, therefore I am!")
       }
@@ -49,11 +133,180 @@ object HelloWorld {
     //Once a trait is defined, it can be mixed in to a class using either the extends or with keywords.
     // Scala programmers “mix in” traits rather than inherit from them, because mixing in a trait has
     // important differences from the multiple inheritance found in many other languages.
-    class Frog extends Philosophical {
+    class Frog0 extends Philosophical {
       override def toString = "green"
     }
     //You can use the extends keyword to mix in a trait; in that case you implicitly inherit the trait’s superclass (plop).
     new Frog philosophize()
+
+    class Animal
+    //If you wish to mix a trait into a class that explicitly extends a superclass,
+    // you use extends to indicate the superclass and with to mix in the trait.
+    class Frog extends Animal with Philosophical {
+      override def toString = "green"
+      override def philosophize() {
+        println("It ain't easy being "+ toString +"!")
+      }
+    }
+
+    //Traits can, for example, declare fields and maintain state.
+    // In fact, you can do anything in a trait definition that you can do in a class definition,
+    // and the syntax looks exactly the same, with only two exceptions.
+    // First, a trait cannot have any “class” parameters, i.e., parameters passed to the primary constructor of a class.
+    // Second, super calls are statically bound, in traits, they are dynamically bound.
+    //  If you write “super.toString” in a class, you know exactly which method implementation will be invoked.
+    //  Rather, the implementation to invoke will be determined anew each time the trait is mixed into a concrete class.
+
+    //=> 12.3 Thin versus rich interfaces
+    // A thin interface, on the other hand, has fewer methods, and thus is easier on the implementers.
+    // A rich interface has many methods, which make it convenient for the caller.
+    // Clients can pick a method that exactly matches the functionality they need.
+    // But with scala, you only need to implement the method once, in the trait itself,
+    //  instead of needing to reimplement it for every class that mixes in the trait.
+    // To enrich an interface using traits, simply define a trait with a small number of abstract methods
+    // —the thin part of the trait’s interface—and a poten- tially large number of concrete methods,
+    // all implemented in terms of the abstract methods. Then you can mix the enrichment trait into a class,
+    // implement the thin portion of the interface, and end up with a class that has all of the rich interface available.
+
+    //=> 12.3 Example: Rectangular objects
+    //==> WITHOUT TRAITS:
+    //Notice that the definitions of left, right, and width are exactly the same in the two classes.
+    class Point(val x: Int, val y: Int)
+    class RectangleNoTrait(val topLeft: Point, val bottomRight: Point) {
+      def left = topLeft.x
+      def right = bottomRight.x
+      def width = right - left
+      // and many more geometric methods...
+    }
+    abstract class ComponentNoTrait {
+      def topLeft: Point
+      def bottomRight: Point
+      def left = topLeft.x
+      def right = bottomRight.x
+      def width = right - left
+      // and many more geometric methods...
+    }
+    //==> WITH TRAITS:
+    trait Rectangular {
+      def topLeft: Point
+      def bottomRight: Point
+      def left = topLeft.x
+      def right = bottomRight.x
+      def width = right - left
+      // and many more geometric methods...
+    }
+    abstract class Component extends Rectangular {
+      // other methods...
+    }
+
+    class Rectangle(val topLeft: Point, val bottomRight: Point)
+      extends Rectangular {
+      // other methods...
+    }
+    val rect = new Rectangle(new Point(1, 1),new Point(10, 10))
+    println("rect.left=" + rect.left)
+    println("rect.right=" + rect.left)
+    println("rect.width=" + rect.width)
+
+    //=> 12.4 The Ordered trait
+    //The Ordered trait then defines <, >, <=, and >= for you in terms of this one "compare" method.
+    // Thus, trait Ordered allows you to enrich a class with comparison methods by implementing only one method, compare.
+    class Rational(n: Int, d: Int) extends Ordered[Rational] { // <=== Ordered requires you to specify a type parameter (i.e Rational) when you mix it in.
+      val numer = n
+      val denom = d
+      override def toString = numer +"/"+ denom
+
+      def compare(that: Rational) =
+        //It should return an integer that is
+        // - zero if the objects are the same,
+        // - negative if receiver is less than the argument, and
+        // - positive if the receiver is greater than the argument
+        (this.numer * that.denom) - (that.numer * this.denom)
+        // Why not equals ?: The problem is that implementing equals in terms of compare requires checking the type of
+        // the passed object, and because of type erasure, Ordered itself cannot do this test.
+    }
+
+    val half = new Rational(1, 2)
+    val third = new Rational(1, 3)
+    println("half < third : " + (half < third))
+    println("half > third : " + (half > third))
+
+    //12.5 Traits as stackable modifications
+    //Traits let you modify the methods of a class, and they do so in a way that allows you
+    // to stack those modifications with each other (sequentially call the same method defined by multiple traits).
+    //Given a class that implements such a queue, you could define traits to perform modifications such as these:
+    //  Doubling, Incrementing, Filtering
+    //  These three traits represent modifications, because they modify the behavior of an underlying queue class
+    //  rather than defining a full queue class themselves.
+    abstract class IntQueue {
+      def get(): Int
+      def put(x: Int)
+    }
+    import scala.collection.mutable.ArrayBuffer
+    class BasicIntQueue extends IntQueue {
+      private val buf = new ArrayBuffer[Int]
+      def get() = buf.remove(0)
+      def put(x: Int) { buf += x }
+    }
+    // Doubling trait declares a superclass, IntQueue.
+    //  This declaration means that the trait can only be mixed into a class that also extends IntQueue.
+    //  Thus, you can mix Doubling into BasicIntQueue, but not into Rational.
+    //super calls in a trait are dynamically bound, the super call in trait Doubling will work
+    // so long as the trait is mixed in after another trait or class that gives a concrete definition to the put method.
+    // To tell the compiler you are doing this on purpose, you must mark such methods as abstract override.
+    trait Doubling extends IntQueue {
+      abstract override def put(x: Int) { super.put(2 * x) }
+    }
+    class MyQueue extends BasicIntQueue with Doubling
+    var queue: IntQueue = new MyQueue
+    queue = new BasicIntQueue with Doubling; queue.put(10)
+    println("val queue = new BasicIntQueue with Doubling; \nqueue.put(10); queue.get()=" + queue.get())
+    trait Incrementing extends IntQueue {
+      abstract override def put(x: Int) { super.put(x + 1) }
+    }
+    trait Filtering extends IntQueue {
+      abstract override def put(x: Int) {
+        if (x >= 0) super.put(x)
+      }
+    }
+    //Given these modifications, you can now pick and choose which ones you want for a particular queue !
+    //The order of mixins is significant. Roughly speaking, traits further to the right take effect first.
+    //Once a trait is mixed into a class, you can alternatively call it a MIXIN.
+    queue = new BasicIntQueue with Incrementing with Filtering; queue.put(-1); queue.put(0); queue.put(1)
+    println("\nval queue = new BasicIntQueue with Incrementing with Filtering\nqueue.put(-1); queue.put(0); queue.put(1);" +
+      "\nqueue.get()=" + queue.get()+ " queue.get()=" + queue.get())
+    queue = new BasicIntQueue with Filtering with Incrementing; queue.put(-1); queue.put(0); queue.put(1)
+    println("\nval queue = new BasicIntQueue with Filtering with Incrementing\nqueue.put(-1); queue.put(0); queue.put(1);" +
+      "\nqueue.get()=" + queue.get() + " queue.get()=" + queue.get() + " queue.get()=" + queue.get())
+
+    //=> 12.6 Why not multiple inheritance?
+    //Trait vs multiple-inheritance : One difference is especially important: the interpretation of super.
+    // The method called by a super call can be determined right where the call appears.
+    // With traits, the method called is determined by a linearization of the classes and traits that are mixed into a class
+    //LINERAIZATION: Scala takes the class and all of its inherited classes and traits and puts them in a single, linear order
+    // Then, whenever you call super inside one of those classes, the invoked method is the next one up the chain.
+    // In any linearization, a class is always linearized before all of its superclasses and mixed in traits.
+    // Thus, when you write a method that calls super, that method is definitely modifying the behavior of the
+    // superclasses and mixed in traits, not the other way around.
+    class Animal1
+    trait Furry extends Animal1
+    trait HasLegs extends Animal1
+    trait FourLegged extends HasLegs
+    class Cat extends Animal1 with Furry with FourLegged
+
+    //=> 12.7 To trait, or not to trait?
+    //Whenever you implement a reusable collection of behavior, you will have to decide whether you want to use a
+    // trait or an abstract class.
+    //Guidelines:
+    // - If the behavior will not be reused, then make it a concrete class
+    // - If it might be reused in multiple, unrelated classes, make it a trait.
+    // - If you want to inherit from it in Java code, use an abstract class.
+    //   Not that a Scala trait with only abstract members translates directly to a Java interface.
+    // - If you plan to distribute it in compiled form, usan abstract class
+    // - If efficiency is very important, lean towards using a class.
+    //   Traits get compiled to interfaces and therefore may pay a slight performance overhead
+    // - If you  do not know, then start by making it as a trait as it keeps more options open
+
   }
 
   def chapter_11_scala_hierarchy(args: Array[String]): Unit = {
