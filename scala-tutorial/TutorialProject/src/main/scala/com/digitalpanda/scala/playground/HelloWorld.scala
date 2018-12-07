@@ -7,6 +7,7 @@ import java.net.{MalformedURLException, URL}
 
 import scala.io.Source
 
+
 object HelloWorld {
 
 
@@ -32,8 +33,61 @@ object HelloWorld {
     chapterSeparator(chapter_11_scala_hierarchy,11)(args)
     chapterSeparator(chapter_12_traits,12)(args)
     chapterSeparator(chapter_13_packages_and_imports,13)(args)
+    chapterSeparator(chapter_14_assertions_and_unit_testing,14)(args)
+    chapterSeparator(chapter_15_case_classes_and_pattern_matching,15)(args)
   }
 
+  def chapter_15_case_classes_and_pattern_matching(args: Array[String]): Unit = {
+    //This chapter introduces case classes and pattern matching, twin constructs that support you when writing regular,
+    // non-encapsulated data structures. These two constructs are particularly helpful for tree-like recursive data.
+
+    //=> 15.1 A simple example
+    //Let’s say you need to write a library that manipulates arithmetic expressions
+    abstract class Expr
+    case class Var(name: String) extends Expr
+    case class Number(num: Double) extends Expr
+    case class UnOp(operator: String, arg: Expr) extends Expr
+    case class BinOp(operator: String, left: Expr, right: Expr) extends Expr
+
+  }
+
+  def chapter_14_assertions_and_unit_testing(args: Array[String]): Unit = {
+    //=> 14.1 Assertions
+    assert( 1 == 1, "This cannot break !")
+    //Assertions (and ensuring checks) can be enabled and disabled using the JVM’s -ea and -da command-line flags.
+    // When enabled, each assertion serves as a little test that uses the actual data encountered as the software runs.
+
+    { println("hello"); "hello" } ensuring( "hello" == _, " input is not equal to \"hello\"")
+
+
+    //=> 14.2 Unit testing in scala
+    // Look at HelloWorldTest.scala
+
+    //=> 14.3 Informative failure reports
+    // Look at HelloWorldTest.scala
+
+    //=> 14.4 Tests as specifications
+    //In the behavior-driven development (BDD) testing style, the emphasis is on writing human-readable
+    // specifications of the expected behavior of code, and accompanying tests that verify the code has
+    // the specified behavior. ScalaTest includes several traits —Spec, WordSpec, FlatSpec, and FeatureSpec—
+    // which facilitate this style of testing.
+    //Look at BehaviourDrivenTest.class
+    /*
+    In a FlatSpec, you write tests as specifier clauses. You start by writing a name for the subject under
+      test as a string ("A Stack"), then should (or must or can),
+      then a string that specifies a bit of behavior required of the subject, then in. In the curly braces following in,
+      you write code that tests the specified behavior.
+      In subsequent closes you can write "it" to refer to the most recently given subject.
+    ScalaTest’s matchers DSL. By mixing in trait ShouldMatchers, you can write assertions that read more like
+      natural language and generate more descriptive failure messages.
+     */
+
+    //=> 14.5 Property-based testing
+    //ScalaCheck enables you to specify properties that the code under test must obey.
+    // For each property, ScalaCheck will generate test data and run tests that check whether the property holds.
+
+
+  }
   def chapter_13_packages_and_imports(args: Array[String]): Unit = {
     /*
     When working on a program, especially a large one, it is important to minimize coupling—the extent to
@@ -116,6 +170,52 @@ object HelloWorld {
     import java.sql.{Date => SDate, _} //<= rename imported class Date to Sdate and import all the rest too
     //A clause of the form “<original-name> => _” excludes <original-name> from the names that are imported.
     import java.sql.{Date => _, _} //<= import all except Date!
+
+    //=> 13.4 Implicit imports
+    //Scala adds some imports implicitly to every program as it wer manually done for :
+    /*
+    import java.lang._ // everything in the java.lang package
+    import scala._     // everything in the scala package
+    import Predef._    // everything in the Predef object
+     */
+
+    //=> 13.5 Access modifiers
+    //Scala’s treatment of access modifiers roughly follows Java’s but
+    // there are some important differences which are explained in this section:
+    //-> Java would permit both accesses because it lets an outer class access private members of its inner classes,
+    // not scala:
+    class Outer {
+      class Inner {
+        private def f() {
+          println("f")
+        }
+        class InnerMost {
+          f() // OK }
+        }
+      }
+      //(new Inner).f() // error: f is not accessible
+    }
+    //-> In Scala, a PROTECTED member is only accessible from subclasses of the class in which the member is defined.
+    // In Java such accesses are also possible from other classes in the same package.
+    //-> Every member not labeled private or protected is PUBLIC.
+    //SCOPE PROTECTION: A modifier of the form private[X] or protected[X] means that access is private or protected
+    // “up to” X[, where X designates some enclosing package,
+    // OBJECT-PRIVATE: private[this] => access only from same object
+    // It will not be seen from other objects of the same class.
+    //COMPANION OBJECT ACCESS: A class shares all its access rights with its companion object and vice versa.
+    // In particular, an object can access all private members of its companion class,
+    // just as a class can access all private members of its companion object.
+
+    //=> 13.6 Package objects
+    //Any kind of definition that you can put inside a class, you can also put at the top level of a package !
+    //To do so, put the definitions in a package object. Each package is allowed to have one package object.
+    // Any definitions placed in a package object are considered members of the package itself.
+    import com.digitalpanda.scala.playground.packageObjectHello
+    packageObjectHello()
+    //Package objects are compiled to class files named package.class (ex: >package scala; => scala.class)
+    // that are the located in the directory of the package that they augment.
+    //It’s useful to keep the same convention for source files. So you would typically put the source file of the
+    // package object bobsdelights of Listing 13.14 into a file named package.scala that resides in the bobsdelights directory
   }
 
   def chapter_12_traits(args: Array[String]): Unit = {
@@ -211,12 +311,12 @@ object HelloWorld {
     //=> 12.4 The Ordered trait
     //The Ordered trait then defines <, >, <=, and >= for you in terms of this one "compare" method.
     // Thus, trait Ordered allows you to enrich a class with comparison methods by implementing only one method, compare.
-    class Rational(n: Int, d: Int) extends Ordered[Rational] { // <=== Ordered requires you to specify a type parameter (i.e Rational) when you mix it in.
+    class RationalOrdered(n: Int, d: Int) extends Ordered[RationalOrdered] { // <=== Ordered requires you to specify a type parameter (i.e Rational) when you mix it in.
       val numer = n
       val denom = d
       override def toString = numer +"/"+ denom
 
-      def compare(that: Rational) =
+      def compare(that: RationalOrdered) =
         //It should return an integer that is
         // - zero if the objects are the same,
         // - negative if receiver is less than the argument, and
@@ -226,8 +326,8 @@ object HelloWorld {
         // the passed object, and because of type erasure, Ordered itself cannot do this test.
     }
 
-    val half = new Rational(1, 2)
-    val third = new Rational(1, 3)
+    val half = new RationalOrdered(1, 2)
+    val third = new RationalOrdered(1, 3)
     println("half < third : " + (half < third))
     println("half > third : " + (half > third))
 
@@ -709,7 +809,7 @@ object HelloWorld {
         filesMatching((fileName) => fileName.contains(query)) // <= Same as : _.contains(query)
 
       def filesRegex(query: String) =
-        //The underscore is a placeholder for the gile name parameter.
+        //The underscore is a placeholder for the file name parameter.
         filesMatching(_.matches(query))
 
       def filesMatching(matcher: String => Boolean) =
@@ -764,6 +864,7 @@ object HelloWorld {
     // the syntax of the language is fixed. All you need to do is create methods that take functions as arguments.
     def twice(op: Double => Double, x: Double) = op(op(x))
     println(twice(_ + 1, 5))
+    println(twice((x) => x + 1, 5))
     //Any time you find a control pattern repeated in multiple parts of your code,
     // you should think about implementing it as a new control structure.
     // Example : open a resource, operate on it, and then close the resource.
@@ -1801,4 +1902,5 @@ object HelloWorld {
         //examples.scala:
           println("Hello, " + args(0) + "!") */
   }
+
 }
