@@ -35,6 +35,63 @@ object HelloWorld {
     chapterSeparator(chapter_13_packages_and_imports,13)(args)
     chapterSeparator(chapter_14_assertions_and_unit_testing,14)(args)
     chapterSeparator(chapter_15_case_classes_and_pattern_matching,15)(args)
+    chapterSeparator(chapter_16_working_with_lists,16)(args)
+  }
+
+  def chapter_16_working_with_lists(args: Array[String]): Unit = {
+    //Lists are probably the most commonly used data structure in Scala programs.
+
+    //=> 16.1 List literals
+    val diag3 =
+      List(
+        List(1, 0, 0),
+        List(0, 1, 0),
+        List(0, 0, 1)
+      )
+    val empty = List()
+    //Lists are quite similar to arrays, but there are two important differences:
+    //  - First, lists are immutable. That is, elements of a list cannot be changed by assignment.
+    //  - Second, lists have a recursive structure
+
+    //=> 16.2 The List type
+    //Like arrays, lists are homogeneous: the elements of a list all have the same type.
+    val diag31: List[List[Int]] =
+    List(
+      List(1, 0, 0),
+      List(0, 1, 0),
+      List(0, 0, 1)
+    )
+    val empty1: List[Nothing] = List() // <== Nothing is the bottom type in Scala’s class hierarchy
+    //The list type in Scala is COVARIANT. This means that
+    // for each pair of types S and T, if S is a subtype of T, then List[S] is a subtype of List[T].
+
+    //=> 16.3 Constructing lists
+    val diag32 =
+      (
+        (1 :: (0 :: (0 :: Nil))) ::
+        (0 :: (1 :: (0 :: Nil))) ::
+        (0 :: (0 :: (1 :: Nil))) :: Nil
+      )
+    val empty2 = Nil
+    //Because it ends in a colon, the :: operation associates to the right
+    var nums = List(1,2,3)
+    nums = 1::(2::(3::(4::Nil)))
+    nums = 1::2::3::4::Nil
+
+    //=> 16.4 Basic operations on lists
+    //All operations on lists can be expressed in terms of the following three:
+    //  - head returns the first element of a list
+    //  - tail returns a list consisting of all elements except the first
+    //  - isEmpty returns true if the list is empty
+    //Example with insertion sort:
+    def isort(xs: List[Int]): List[Int] =
+      if (xs.isEmpty) Nil
+      else insert(xs.head, isort(xs.tail))
+    def insert(x: Int, xs: List[Int]): List[Int] =
+      if (xs.isEmpty || x <= xs.head) x :: xs
+      else xs.head :: insert(x, xs.tail) // <== xs is sorted
+    print("isort(0::33::2::1::101::Nil) : " + isort(0::33::2::1::101::Nil))
+
   }
 
   def chapter_15_case_classes_and_pattern_matching(args: Array[String]): Unit = {
@@ -43,13 +100,349 @@ object HelloWorld {
 
     //=> 15.1 A simple example
     //Let’s say you need to write a library that manipulates arithmetic expressions
-    abstract class Expr
+    sealed abstract class Expr
     case class Var(name: String) extends Expr
     case class Number(num: Double) extends Expr
     case class UnOp(operator: String, arg: Expr) extends Expr
     case class BinOp(operator: String, left: Expr, right: Expr) extends Expr
 
+    //==> Case classes
+    //Using the "case" modifier for a class makes the Scala compiler add some syntactic conveniences to your class:
+    // - First, it adds a factory method with the name of the class => no need of "new" operator:
+    val v = Var("x")
+    val op = BinOp("+", Number(1), v)
+    // - The second syntactic convenience is that all arguments in the parameter list of a case class implicitly get
+    //    a val prefix, so they are maintained as fields.
+    println("op : " + op)
+    println("op.left : " + op.left)
+    // - Third, the compiler adds “natural” implementations of methods toString, hashCode, and equals to your class.
+    //    They will print, hash, and compare a whole tree consisting of the class and (recursively) all its arguments.
+    //    Since == in Scala always delegates to equals, this means that
+    //    elements of case classes are always compared structurally
+    println("op.right == Var(\"x\") : " + (op.right == Var("x")))
+    // - Fourth, the compiler adds a copy method to your class for making modified (deep) copies.
+    println("op.copy(operator = \"-\") : " + op.copy(operator = "-"))
+    // - Finally, the biggest advantage of case classes is that they support pattern matching.
+
+    //==> Pattern matching
+    // A match expression is evaluated by trying each of the patterns in the order they are written.
+    //  The first pattern that matches is selected, and the part following the arrow is selected and executed
+    def simplifyTop(expr: Expr): Expr = expr match {
+      case UnOp("-", UnOp("-", e)) => e // Double negation
+      case BinOp("+", e, Number(0)) => e // Adding zero
+      case BinOp("*", e, Number(1)) => e // Multiplying by one
+      case _ => expr
+    }
+
+    println("simplifyTop(UnOp(\"-\", UnOp(\"-\", Var(\"x\")))) : " + simplifyTop(UnOp("-", UnOp("-", Var("x")))))
+    //The right-hand side of simplifyTop consists of a match expression.
+    // A PATTERN MATCH includes a sequence of alternatives, each starting with the keyword case.
+    // Each ALTERNATIVE includes a pattern and one or more expression, which will be evaluated if the pattern matches.
+    //    selector match { alternatives }
+    // An arrow symbol => separates the pattern from the expressions.
+    //A CONSTRUCTOR PATTERN looks like UnOp("-", e). This pattern matches all values of type UnOp whose first
+    // argument matches "-" and whose sec- ond argument matches e. Note that the arguments to
+    // the constructor are themselves patterns.
+
+    //==> match compered to switch
+    //Match expressions can be seen as a generalization of Java-style switches.
+    //There are three differences to keep in mind, however:
+    // - First, match is an expression in Scala, i.e., it always results in a value !!!
+    // - Second, Scala’s alternative expressions never “fall through” into the next case.
+    // - Third, if none of the patterns match, an exception named MatchError is thrown.
+
+    //=> 15.2 Kind of patterns
+    //==> Wildcard patterns
+    // The wildcard pattern (_) matches any object whatsoever.
+    // It can be used as a catch-all alternative
+    // It can also be used to ignore parts of an object that you do not care about.
+    def wildcard(expr: Expr): Unit = expr match {
+      case BinOp(_, _, _) => println(expr + " is a binary operation")
+      case _ => println("It's something else")
+    }
+
+    //==> Constant patterns
+    //A constant pattern matches only itself. Any literal may be used as a constant:
+    def describe(x: Any): String = x match {
+      case 5 => "five"
+      case true => "truth"
+      case "hello" => "hi!"
+      case Nil => "the empty list"
+      case _ => "something else"
+    }
+
+    println("describe(5) : " + describe(5))
+    println("describe(true) : " + describe(true))
+    println("describe(\"hello\") : " + describe("hello"))
+    println("describe(Nil) : " + describe(Nil))
+    println("describe(List(1,2,3)) : " + describe(List(1, 2, 3)))
+
+    //==> Variable patterns
+    //A variable pattern matches any object, just like a wildcard.
+    // Unlike a wildcard, Scala binds the variable to whatever the object is. (see "e" in simplifyTop())
+
+    //==> Variable or Constant ?
+    //Scala uses a simple lexical rule for disambiguation:
+    // a simple name starting with a lowercase letter is taken to be a pattern variable;
+    //If you need to, you can still use a lowercase name for a pattern constant:
+    //  => For instance, `pi` would again be interpreted as a constant (like "Pi" ).
+
+    //==> Constructor patterns
+    //Ex: “BinOp("+", e, Number(0))”
+    //Assuming the name designates a case class, such a pattern means to first check that the object is a member of the
+    // named case class "BinOp", and then to check that the constructor parameters of the object match
+    // the extra patterns supplied.
+    //Scala patterns support deep matches. Such patterns not only check the top-level object supplied,
+    // but also check the contents of the object against further patterns.
+
+    //==> Sequence patterns
+    //You can match against sequence types like List or Array just like you match against case classes
+    def find0inList(e: Seq[Int]): String = e match {
+      case List(_, 0, _*) => "found 0"
+      case _ => "did not find 0"
+    }
+
+    println("find0inList(2::1::Nil) : " + find0inList(2 :: 1 :: Nil))
+    println("find0inList(2::0::1::Nil) : " + find0inList(2 :: 0 :: 1 :: Nil))
+    println("find0inList(2::0::Nil) : " + find0inList(2 :: 0 :: Nil))
+    println("find0inList(33::1::2::0::Nil) : " + find0inList(33 :: 1 :: 2 :: 0 :: Nil))
+    //If you want to match against a sequence without specifying how long it can be,
+    // you can specify _* as the last element of the pattern.
+
+    //==> Tuples pattern
+    def tupleDemo(expr: Any): String = expr match {
+      case (a, b, c) => "matched " + a + b + c
+      case _ => ""
+    }
+    println("tupleDemo((\"a \", 3, \"-tuple\")) : " + tupleDemo(("a ", 3, "-tuple")))
+
+    //==> Typed patterns
+    //You can use a typed pattern as a convenient replacement for type tests and type casts
+    def generalSize(x: Any) = x match {
+      case s: String => s.length
+      case m: Map[_, _] => m.size
+      case _ => -1
+    }
+    println("generalSize(\"abc\") : " + generalSize("abc"))
+    println("generalSize(Map(1 -> 'a', 2 -> 'b'))) : " + generalSize(Map(1 -> 'a', 2 -> 'b')))
+    println("generalSize(math.Pi) : " + generalSize(math.Pi))
+    //The pattern “s: String” is a typed pattern; it matches every (non-null) instance of String
+    //An equivalent but more long-winded way that achieves the effect of a match against a typed pattern
+    // employs a type test followed by a type cast.
+    def notSoGeneralSize(x: Any) = if (x.isInstanceOf[String])  x.asInstanceOf[String].length else -1
+    println("notSoGeneralSize(\"abc\") : " + notSoGeneralSize("abc"))
+    println("notSoGeneralSize(1::Nil) : " + notSoGeneralSize(1::Nil))
+
+    //==> Type erasure
+    def isIntIntMap(x: Any) = x match {
+      case m: Map[Int, Int] => true
+      case _ => false
+    }
+    //Scala uses the erasure model of generics, just like Java does.
+    // This means that no information about type arguments is maintained at runtime.
+    //Consequently, there is no way to determine at runtime whether a given Map object has been created with
+    // two Int arguments, rather than with arguments of dif- ferent types
+    println("isIntIntMap(Map(1 -> 1)) : " + isIntIntMap(Map(1 -> 1)))
+    println("isIntIntMap(Map(\"abc\" -> \"abc\") (type erasure...): " + isIntIntMap(Map("abc" -> "abc")))
+    //The only exception to the erasure rule is arrays, because they are handled specially in Java as well as in Scala.
+    // The element type of an array is stored with the array value, so you can pattern match on it.
+    def isStringArray(x: Any) = x match {
+      case a: Array[String] => "yes"
+      case _ => "no"
+    }
+    println("isStringArray(Array(\"abc\")) : " + isStringArray(Array("abc")))
+    println("isStringArray(Array(1, 2, 3)) (special case, no erasure with arrays) : " + isStringArray(Array(1, 2, 3)))
+
+    //==> Variable binding
+    //Variable binding pattern : You simply write the variable name, an at sign (@), and then the pattern.
+    //Perform the pattern match as normal, and if the pattern succeeds, set the variable to
+    // the matched object just as with a simple variable pattern.
+    def extractFirstArgumentIfUnOpAbs(expr : Expr): Expr = expr match {
+      case UnOp("abs", e @ UnOp("abs", _)) => e
+      case _ => expr
+    }
+    println("extractFirstArgumentIfUnOpAbs(UnOp(\"abs\", UnOp(\"abs\", Var(\"plop\")))) : "
+      + extractFirstArgumentIfUnOpAbs(UnOp("abs", UnOp("abs", Var("plop")))))
+
+    //==> Pattern guards
+    //A pattern guard comes after a pattern and starts with an if. The guard can be an arbitrary boolean expression,
+    // which typically refers to variables in the pattern.
+    // If a pattern guard is present, the match succeeds only if the guard evaluates to true.
+    //Scala restricts patterns to be linear: a pattern variable may only appear once in a pattern
+    /* => The following does not work:
+      def simplifyAdd(e: Expr) = e match {
+        case BinOp("+", x, x) => BinOp("*", x, Number(2))
+        case _ => e
+      }
+    */
+    //However, you can re-formulate the match with a pattern guard.
+    def simplifyAdd(e: Expr) = e match {
+      case BinOp("+", x, y) if x == y =>
+        BinOp("*", x, Number(2))
+      case _ => e
+    }
+
+
+    //=> 15.4 Pattern overlaps
+    //Patterns are tried in the order in which they are written.
+
+
+    //=> 15.5 Sealed classes
+    //Sometimes you can do this by adding a default case at the end of the match,
+    // but that only applies if there is a sensible default behavior.
+    // What do you do if there is no default?
+    //You can enlist the help of the Scala compiler in detecting missing combinations of patterns in a match expression
+    //In general, this is impossible in Scala, because new case classes can be defined at any time and in arbitrary compilation units.
+    //! Make the superclass of your case classes sealed (use the "sealed" class modifier).
+    // A sealed class cannot have any new subclasses added except the ones in the same file
+    def describeUncomplete(e: Expr): String = e match {
+      case Number(_) => "a number"
+      case Var(_)    => "a variable"
+    }
+    /*
+    Produces compiler warning :
+        warning: match is not exhaustive!
+        missing combination           UnOp
+        missing combination          BinOp
+     */
+
+    //Disable compiler warning for sealed case class with @unchecked annotation
+    // If a match’s selector expression carries this annotation, exhaustivity checking for the patterns
+    // that follow will be suppressed.
+    def describeUnchecked(e: Expr): String = (e: @unchecked) match {
+      case Number(_) => "a number"
+      case Var(_)    => "a variable"
+    }
+
+
+    //=> 15.6 The Option type
+    //Scala has a standard type named Option for optional values.
+    // Such a value can be of two forms. It can be of the form Some(x) where x is the actual value.
+    // Or it can be the None object, which represents a missing value.
+    //Optional values are produced by some of the standard operations on Scala’s collections
+    val capitals = Map("France" -> "Paris", "Japan" -> "Tokyo")
+    println("capitals get \"France\" : " + (capitals get "France"))
+    println("capitals get \"North Pole\" : " + (capitals get "North Pole"))
+    // !!! The most common way to take optional values apart is through a pattern match:
+    def show(x: Option[String]) = x match {
+      case Some(s) => s
+      case None => "?"
+    }
+    println("show(capitals get \"Japan\") : " + show(capitals get "Japan"))
+    println("show(capitals get \"North Pole\") : " + show(capitals get "North Pole"))
+    //The Option type is used frequently in Scala programs.
+    // Compare this to the dominant idiom in Java of using null to indicate no value.
+    //This approach to optional values has several advantages over Java’s:
+    // - First, it is far more obvious to readers of code that a variable whose type is
+    //    Option[String] is an optional String than a variable of type String, which may sometimes be null.
+    // - But most importantly, that programming error described earlier of using a variable that may be null without
+    //    first checking it for null becomes in Scala a type error.
+    //    If a variable is of type Option[String] and you try to use it as a String, your Scala program will not compile.
+
+
+    //=> 15.7 Patterns everywhere
+    //Patterns are allowed in many parts of Scala, not just in standalone match expressions !!!
+
+    //==> Patterns in variable definitions
+    val myTuple = (123, "abc")
+    val (number, string) = myTuple
+
+    val exp = BinOp("*", Number(5), Number(1))
+    val BinOp(operator, left, right) = exp
+
+    //==> Case sequences as partial functions
+    //A case sequence is a function literal, only more general :
+    val withDefault: Option[Int] => Int = {
+      case Some(x) => x
+      case None => 0
+    }
+    println("withDefault(Some(10)) : " + withDefault(Some(10)))
+    println("withDefault(None) : " + withDefault(None))
+    //In general, you should try to work with complete functions whenever possible,
+    // because using partial functions allows for runtime errors that the compiler cannot help you with.
+    // partial functions ar functions which do not handle all possible inputs (i.e. not all cases for a case class)
+    // If you want to check whether a partial function is defined,
+    // you must first tell the compiler that you know you are working with partial functions:
+    val second: PartialFunction[List[Int],Int] = {
+      case x :: y :: _ => y
+    }
+    //The compiler will then generate isDefinedAt(): Boolean to check if the partial function is defined for the input value.
+
+    //==> Patterns in for expressions
+    //Example:
+    for ((country, city) <- capitals)
+      println("The capital of "+ country +" is "+ city)
+
+    //Generated values that do not match the pattern are discarded:
+    val results = List(Some("apple"), None, Some("orange"))
+    for (Some(fruit) <- results) println(fruit)
+
+
+    //=> 15.8 A larger example
+    //Look at the book for explanations
+    import Element.elem
+    class ExprFormatter {
+
+      // Contains operators in groups of increasing precedence
+      private val opGroups =
+        Array(
+          Set("|", "||"),
+          Set("&", "&&"),
+          Set("ˆ"),
+          Set("==", "!="),
+          Set("<", "<=", ">", ">="),
+          Set("+", "-"),
+          Set("*", "%") )
+
+      // A mapping from operators to their precedence
+      private val precedence = {
+        val assocs =
+          for {
+            i <- 0 until opGroups.length
+            op <- opGroups(i)
+          } yield op -> i
+        assocs.toMap
+      }
+      private val unaryPrecedence = opGroups.length
+      private val fractionPrecedence = -1
+
+      private def format(e: Expr, enclPrec: Int): Element =
+        e match {
+          case Var(name) =>
+            elem(name)
+          case Number(num) =>
+            def stripDot(s: String) =
+              if (s endsWith ".0") s.substring(0, s.length - 2)
+              else s
+            elem(stripDot(num.toString))
+          case UnOp(op, arg) =>
+            elem(op) beside format(arg, unaryPrecedence)
+          case BinOp("/", left, right) =>
+            val top = format(left, fractionPrecedence)
+            val bot = format(right, fractionPrecedence)
+            val line = elem('-', top.width max bot.width, 1)
+            val frac = top above line above bot
+            if (enclPrec != fractionPrecedence) frac
+            else elem(" ") beside frac beside elem(" ")
+          case BinOp(op, left, right) =>
+            val opPrec = precedence(op)
+            val l = format(left, opPrec)
+            val r = format(right, opPrec + 1)
+            val oper = l beside elem(" "+ op +" ") beside r
+            if (enclPrec <= opPrec) oper
+            else elem("(") beside oper beside elem(")")
+        }
+      def format(e: Expr): Element = format(e, 0)
+    }
+    val f = new ExprFormatter
+    val e1 = BinOp("*", BinOp("/", Number(1), Number(2)), BinOp("+", Var("x"), Number(1)))
+    val e2 = BinOp("+", BinOp("/", Var("x"), Number(2)), BinOp("/", Number(1.5), Var("x")))
+    val e3 = BinOp("/", e1, e2)
+    def showExpression(e: Expr) = println(f.format(e) + "\n\n")
+    for (e <- Array(e1, e2, e3)) showExpression(e)
+
   }
+
 
   def chapter_14_assertions_and_unit_testing(args: Array[String]): Unit = {
     //=> 14.1 Assertions
