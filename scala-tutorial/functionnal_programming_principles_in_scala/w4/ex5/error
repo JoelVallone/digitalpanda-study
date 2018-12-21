@@ -1,0 +1,118 @@
+Your overall score for this assignment is 9.13 out of 10.00
+
+
+The code you submitted did not pass all of our tests: your submission achieved a score of
+7.17 out of 8.00 in our tests.
+
+In order to find bugs in your code, we advise to perform the following steps:
+ - Take a close look at the test output that you can find below: it should point you to
+   the part of your code that has bugs.
+ - Run the tests that we provide with the handout on your code.
+ - The tests we provide do not test your code in depth: they are very incomplete. In order
+   to test more aspects of your code, write your own unit tests.
+ - Take another very careful look at the assignment description. Try to find out if you
+   misunderstood parts of it. While reading through the assignment, write more tests.
+
+Below you can find a short feedback for every individual test that failed.
+
+Our automated style checker tool found issues in your code with respect to coding style: it
+computed a style score of 1.96 out of 2.00 for your submission. See below for detailed feedback.
+
+======== LOG OF FAILED TESTS ========
+Your solution achieved a testing score of 241 out of 269.
+
+Below you can see a short feedback for every test that failed,
+indicating the reason for the test failure and how many points
+you lost for each individual test.
+
+Tests that were aborted took too long too complete or crashed the
+JVM. Such crashes can arise due to infinite non-terminating
+loops or recursion (StackOverflowException) or excessive memory
+consumption (OutOfMemoryException).
+
+[Test Description] 'createCodeTree(someText)' gives an optimal encoding, the number of bits when encoding 'someText' is minimal
+[Observed Error] head of empty list
+[exception was thrown] detailed error message in debug output section below
+[Lost Points] 15
+
+[Test Description] createCodeTree should be implemented in terms of times, makeOrderedLeafList, singleton, combine and until
+[Observed Error] head of empty list
+[exception was thrown] detailed error message in debug output section below
+[Lost Points] 10
+
+[Test Description] singleton of nil
+[Observed Error] true did not equal false
+[Lost Points] 3
+
+======== TESTING ENVIRONMENT ========
+Limits: memory: 256m,  total time: 850s,  per test case time: 240s
+
+======== DEBUG OUTPUT OF TESTING TOOL ========
+[test failure log] test name: HuffmanSuite::'createCodeTree(someText)' gives an optimal encoding, the number of bits when encoding 'someText' is minimal::15
+java.util.NoSuchElementException: head of empty list
+scala.collection.immutable.Nil$.head(List.scala:420)
+scala.collection.immutable.Nil$.head(List.scala:417)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.combine(Huffman.scala:145)
+patmat.Huffman$$anonfun$createCodeTree$2.apply(Huffman.scala:174)
+patmat.Huffman$$anonfun$createCodeTree$2.apply(Huffman.scala:174)
+patmat.Huffman$.until(Huffman.scala:166)
+patmat.Huffman$.createCodeTree(Huffman.scala:174)
+patmat.HuffmanSuite$$anonfun$20$$anon$7.<init>(HuffmanSuite.scala:172)
+patmat.HuffmanSuite$$anonfun$20.apply$mcV$sp(HuffmanSuite.scala:171)
+ch.epfl.lamp.grading.GradingSuite$$anonfun$test$1.apply$mcV$sp(GradingSuite.scala:124)
+ch.epfl.lamp.grading.GradingSuite$$anonfun$test$1.apply(GradingSuite.scala:122)
+ch.epfl.lamp.grading.GradingSuite$$anonfun$test$1.apply(GradingSuite.scala:122)
+org.scalatest.Transformer$$anonfun$apply$1.apply$mcV$sp(Transformer.scala:22)
+org.scalatest.OutcomeOf$class.outcomeOf(OutcomeOf.scala:85)
+org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+org.scalatest.Transformer.apply(Transformer.scala:22)
+org.scalatest.Transformer.apply(Transformer.scala:20)
+org.scalatest.FunSuiteLike$$anon$1.apply(FunSuiteLike.scala:166)
+
+
+[test failure log] test name: HuffmanSuite::createCodeTree should be implemented in terms of times, makeOrderedLeafList, singleton, combine and until::10
+java.util.NoSuchElementException: head of empty list
+scala.collection.immutable.Nil$.head(List.scala:420)
+scala.collection.immutable.Nil$.head(List.scala:417)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.insertNode$1(Huffman.scala:144)
+patmat.Huffman$.combine(Huffman.scala:145)
+patmat.Huffman$$anonfun$createCodeTree$2.apply(Huffman.scala:174)
+patmat.Huffman$$anonfun$createCodeTree$2.apply(Huffman.scala:174)
+patmat.Huffman$.until(Huffman.scala:166)
+patmat.Huffman$.createCodeTree(Huffman.scala:174)
+patmat.HuffmanSuite$$anonfun$27$$anonfun$apply$mcV$sp$1.apply$mcV$sp(HuffmanSuite.scala:227)
+ch.epfl.lamp.grading.instrumented.InstrumentedSuite$class.profile(InstrumentedSuite.scala:21)
+patmat.HuffmanSuite.profile(HuffmanSuite.scala:16)
+patmat.HuffmanSuite$$anonfun$27.apply$mcV$sp(HuffmanSuite.scala:228)
+ch.epfl.lamp.grading.GradingSuite$$anonfun$test$1.apply$mcV$sp(GradingSuite.scala:124)
+ch.epfl.lamp.grading.GradingSuite$$anonfun$test$1.apply(GradingSuite.scala:122)
+ch.epfl.lamp.grading.GradingSuite$$anonfun$test$1.apply(GradingSuite.scala:122)
+org.scalatest.Transformer$$anonfun$apply$1.apply$mcV$sp(Transformer.scala:22)
+org.scalatest.OutcomeOf$class.outcomeOf(OutcomeOf.scala:85)
+org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+org.scalatest.Transformer.apply(Transformer.scala:22)
+org.scalatest.Transformer.apply(Transformer.scala:20)
+org.scalatest.FunSuiteLike$$anon$1.apply(FunSuiteLike.scala:166)
+org.scalatest.Suite$class.withFixture(Suite.scala:1122)
+org.scalatest.FunSuite.withFixture(FunSuite.scala:1555)
+======== CODING STYLE ISSUES ========
+Checking file /grader/repository/courses/progfun1/src/main/scala/common/package.scala... OK!
+Checking file /grader/repository/courses/progfun1/src/main/scala/patmat/Huffman.scala...
+  1. warning at line 20 character 13:
+     You should implement equals and hashCode together
+  2. warning at line 26 character 13:
+     You should implement equals and hashCode together
+
+Processed 2  file(s)
+Found 0 errors
+Found 2 warnings
+
