@@ -36,6 +36,11 @@ object HelloWorld {
     chapterSeparator(chapter_14_assertions_and_unit_testing,14)(args)
     chapterSeparator(chapter_15_case_classes_and_pattern_matching,15)(args)
     chapterSeparator(chapter_16_working_with_lists,16)(args)
+    chapterSeparator(chapter_17_collections,17)(args)
+  }
+
+  def chapter_17_collections(args: Array[String]): Unit = {
+
   }
 
   def chapter_16_working_with_lists(args: Array[String]): Unit = {
@@ -77,6 +82,8 @@ object HelloWorld {
     var nums = List(1,2,3)
     nums = 1::(2::(3::(4::Nil)))
     nums = 1::2::3::4::Nil
+    println("Nil.::(3).::(2).::(1) : " + Nil.::(3).::(2).::(1))
+    println("1::2::3::Nil : " + String.valueOf(1::2::3::Nil))
 
     //=> 16.4 Basic operations on lists
     //All operations on lists can be expressed in terms of the following three:
@@ -90,9 +97,235 @@ object HelloWorld {
     def insert(x: Int, xs: List[Int]): List[Int] =
       if (xs.isEmpty || x <= xs.head) x :: xs
       else xs.head :: insert(x, xs.tail) // <== xs is sorted
-    print("isort(0::33::2::1::101::Nil) : " + isort(0::33::2::1::101::Nil))
+    println("isort(0::33::2::1::101::Nil) : " + isort(0::33::2::1::101::Nil))
 
+    //=> 16.5 List patterns
+    //Lists can also be taken apart using pattern matching. List patterns correspond
+    // one-by-one to list expressions.
+    val fruit = "apples" :: ("oranges" :: ("pears" :: ("cherries":: Nil)))
+    val List(a,b,y,z) = fruit //<= must match the exact count...
+    val c::d::rest = fruit
+    println("a=" + a + ", b=" + b + ", y=" + y + ", z=" + z)
+    println("c=" + c + ", c=" + d + ", rest=" )
+    def isortP(xs: List[Int]): List[Int] = xs match {
+      case List()  => List()
+      case x :: xs1 => insertP(x, isort(xs1))
+    }
+    def insertP(x: Int, xs: List[Int]): List[Int] = xs match {
+      case List() => List(x)
+      case y :: ys => if (x <= y) x :: xs else y :: insertP(x, ys)
+    }
+    //Often, pattern matching over lists is clearer than decomposing them with
+    // methods.
+
+    //=> 16.6 First-order methods on class List
+    //A method is FIRST-ORDER if it does not take any functions as arguments.
+    //- O(n) Concatenating two lists:
+    println("List(1, 2, 3) ::: List(4) : " + String.valueOf(List(1, 2, 3) ::: List(4)))
+    println("List(1, 2, 3) ::: List(4) : " + String.valueOf(List(1, 2, 3) ::: List(4)))
+    //list concatenation associates to the right. An expression like this:
+    //xs ::: ys ::: zs /* is interpreted like this =>*/ xs ::: (ys ::: zs)
+
+    //- The Divide and Conquer principle:
+    //-> Many algorithms over lists first split an input list into simpler
+    //   cases using a pattern match. That’s the divide part of the principle.
+    //-> They then construct a result for each case. If the result is a
+    //   non-empty list, some of its parts may be constructed by recursive
+    //   invocations of the same algorithm. That’s the conquer part of the principle.
+    //Let's implement list concatenation “by hand,” using pattern matching on lists
+    def append[T](xs: List[T], ys: List[T]): List[T] =
+      xs match {
+        case Nil => ys
+        case x :: xs1 => x::append(xs1, ys)
+      }
+
+    //- /!\ O(n) /!\ => Taking the length of a list: length <= /!\ O(n) /!\
+    println("List(1, 2, 3).length : " + List(1, 2, 3).length)
+    //On lists, unlike arrays, length is a relatively expensive operation. It needs to
+    // traverse the whole list to find its end and therefore takes time proportional to
+    // the number of elements in the list. That’s why it’s not a good idea to replace
+    // a test such as xs.isEmpty by xs.length == 0 .
+
+    //- /!\ O(n) /!\ =>  Accessing the end of a list: init and last  <= /!\ O(n) /!\
+    val abcde = List('a', 'b', 'c', 'd', 'e')
+    println("abcde.last : " + abcde.last)
+    println("abcde.init : " + abcde.init)
+    //Like head and tail , these methods throw an exception when applied to an
+    //empty list
+
+    //- O(n) Reversing lists: reverse
+    //If at some point in the computation an algorithm demands frequent accesses
+    // to the end of a list, it’s sometimes better to reverse the list first and work with
+    // the result instead.
+    println("abcde.reverse : " + abcde.reverse)
+
+    //- Prefixes and suffixes: drop , take , and splitAt
+    //The expression “ xs take n ” returns the first n elements of the list xs
+    //The operation “ xs drop n ” returns all elements of the list xs except the first n ones
+    //The splitAt operation splits the list at a given index, returning a pair of
+    //two lists.
+    println("abcde take 2 : " + String.valueOf(abcde take 2))
+    println("abcde drop 2 : " + String.valueOf(abcde drop 2))
+    println("abcde splitAt 2 : " + String.valueOf(abcde splitAt 2))
+
+    // - O(n) Element selection: apply and indices
+    println("abcde apply 2 : " + abcde apply 2)
+    println("abcde(2) : " + String.valueOf(abcde(2)))
+    //As for all other types, apply is implicitly inserted when an object
+    // appears in the function position in a method call.
+    println("abcde.indices : " + abcde.indices)
+
+    // - O(n) Flattening a list of lists: flatten
+    //Only one level deep
+    println("List(List(1, 2), List(3), List(), List(List(4, 5), 6)).flatten : "
+      + String.valueOf(List(List(1, 2), List(3), List(), List(List(4, 5), 6)).flatten))
+
+    // - O(min(m,n)) Zipping lists: zip and unzip
+    val zipped = abcde.indices zip abcde;
+    println("abcde.indices zip abcde : " + zipped)
+    println("abcde.zipWithIndexe : " + abcde.zipWithIndex)
+    println("zipped.unzip : " + zipped.unzip)
+
+    // - Displaying lists: toString and mkString
+    println("abcde mkString (\"[\", \",\", \"]\") : "
+      + String.valueOf(abcde mkString ("[", ",", "]")))
+    var buf = new StringBuilder
+    buf = abcde addString (buf, "(", ";", ")")
+
+    // - Converting lists: iterator , toArray , copyToArray
+    val arrayOfZeroes = new Array[Int](10)
+    println("List(1, 2, 3) copyToArray (arr2, 3) : " + String.valueOf(List(1, 2, 3) copyToArray (arrayOfZeroes, 3)))
+    println("abcde.iterator.next : " + abcde.iterator.next)
+
+    // - Example: Merge sort
+    def msort[T](less: (T, T) => Boolean) (xs: List[T]): List[T] = {
+
+      def merge(xs: List[T], ys: List[T]): List[T] =
+        (xs, ys) match {
+          case (Nil, _) => ys
+          case (_, Nil) => xs
+          case (x :: xs1, y :: ys1) =>
+            if (less(x, y)) x :: merge(xs1, ys)
+            else y :: merge(xs, ys1)
+        }
+
+      val n = xs.length / 2
+      if (n == 0) xs
+      else {
+        val (ys, zs) = xs splitAt n
+        merge(msort(less)(ys), msort(less)(zs))
+      }
+    }
+    println("msort((x: Int, y: Int) => x < y)(List(5, 7, 1, 3)) : "
+      + String.valueOf(msort((x: Int, y: Int) => x < y)(List(5, 7, 1, 3))))
+
+    //=> 16.7 Higher-order methods on a class List
+    //higher-order functions used in operator notation. Higher-order functions
+    // are functions that take other functions as parameters.
+    //- Mapping over lists: map , flatMap and foreach
+    val words = List("the", "quick", "brown", "fox")
+    println("words map (_.toList.reverse.mkString) : "
+      + String.valueOf(words map (_.toList.reverse.mkString)))
+
+    println( "List.range(1, 5) flatMap ( i => List.range(1, i) map (j => (i, j))) : "
+      + String.valueOf(List.range(1, 5) flatMap ( i => List.range(1, i) map (j => (i, j)))))
+
+    println("for (i <- List.range(1, 5); \n" +
+            "     j <- List.range(1, i)) yield (i, j) : " + String.valueOf(
+      for (i <- List.range(1, 5);
+           j <- List.range(1, i)) yield (i, j)))
+
+    var sum = 0
+    List(1, 2, 3, 4, 5) foreach (sum += _)
+
+    //- Filtering lists: filter , partition , find , takeWhile , dropWhile , and
+    //   span
+    //-> filter
+    println("List(1, 2, 3, 4, 5) filter (_ % 2 == 0) : "
+      + String.valueOf(List(1, 2, 3, 4, 5) filter (_ % 2 == 0)))
+    // -> partition
+    //The partition method is like filter, but it returns a pair of lists. One list
+    // contains all elements for which the predicate is true, while the other list
+    // contains all elements for which the predicate is false.
+    println("List(1, 2, 3, 4, 5) partition (_ % 2 == 0) : "
+      + String.valueOf(List(1, 2, 3, 4, 5) partition (_ % 2 == 0)))
+    //-> find
+    //The find method is also similar to filter but it returns the first element
+    // satisfying a given predicate, rather than all such elements.
+    // It returns an optional value.
+    println("List(1, 2, 3, 4, 5) find (_ % 2 == 0) : "
+      + String.valueOf(List(1, 2, 3, 4, 5) find (_ % 2 == 0)))
+    //-> takeWhile
+    //xs takeWhile p takes the longest prefix of list xs
+    // such that every element in the prefix satisfies p . Analogously, the operation
+    println("List(1, 2, 3, -4, 5) takeWhile (_ > 0) : "
+      + String.valueOf(List(1, 2, 3, -4, 5) takeWhile (_ > 0)))
+    //-> dropWhile
+    //xs dropWhile p removes the longest prefix from list xs such that every
+    // element in the prefix satisfies p .
+    println("List(1, 2, 3, -4, 5) dropWhile (_ > 0) : "
+      + String.valueOf(List(1, 2, 3, -4, 5) dropWhile (_ > 0)))
+    //-> span
+    //The span method combines takeWhile and dropWhile in one operation
+    println("List(1, 2, 3, -4, 5) span (_ > 0) : "
+      + String.valueOf(List(1, 2, 3, -4, 5) span (_ > 0)))
+
+    //- Predicates over lists: forall and exists
+    def hasZeroRow(m: List[List[Int]]) =
+      m exists (row => row forall (_ == 0))
+    println("hasZeroRow(identityMatrix_3) : "  +
+      hasZeroRow(List(
+      1::0::0::Nil,
+      0::1::0::Nil,
+      0::0::1::Nil,
+    )) + "// <= used forall ")
+
+    //- Folding lists: /: and :\
+    // -> fold left
+    //A fold left operation “ (z /: xs) (op) ” involves three objects: a start value
+    // z , a list xs , and a binary operation op
+    //For instance: (z /: List(a, b, c)) (op) equals
+    // op(op(op(z, a), b), c)
+    println("(0 /: List(1, 2, 3)) (_ + _) : "
+      + String.valueOf((0 /: List(1, 2, 3)) (_ + _)))
+    // -> fold right
+    //The operator has :\ as an analog that produces right-leaning tree
+    //For associative operations, fold left and fold right are equivalent, but
+    //there might be a difference in efficiency.
+    //-> Example: List reversal using fold
+    println("(Nil :\\ List(1, 2, 3)) (_ :: _) : "
+      + String.valueOf(
+          (List[Int]() /: List[Int](1,2,3)) {(ys, y) => y :: ys}
+    ))
+    //-> Sorting lists: sortWith
+    println("List(1, -3, 4, 2, 6) sortWith (_ < _) : "
+      + String.valueOf(List(1, -3, 4, 2, 6) sortWith (_ < _)))
+
+    //=> 16.8 Methods of the List object
+    // - Creating lists from their elements: List.apply
+    println("List.apply(1, 2, 3) : "
+      + String.valueOf(List.apply(1, 2, 3)))
+    println("List(1, 2, 3) : "
+      + String.valueOf(List(1, 2, 3)))
+    // - Creating a range of numbers: List.range
+    println("List.range(9, 1, -3) : "
+      + String.valueOf(List.range(9, 1, -3)))
+
+    //- Creating uniform lists: List.fill
+    println("List.fill(3)(\"hello\" : "
+      + String.valueOf(List.fill(3)("hello")))
+    println("List.fill(3, 2)('b') : "
+
+    //- Tabulating a function: List.tabulate
+      + String.valueOf(List.fill(3, 2)('b')))
+    println("List.tabulate(5,5)(_ * _) : "
+      + String.valueOf(List.tabulate(5,5)(_ * _)))
+
+    //=> 16.9 Processing multiple lists together
+    println("(List(10, 20), List(3, 4, 5)).zipped.map(_ * _) : "
+      + String.valueOf((List(10, 20), List(3, 4, 5)).zipped.map(_ * _)))
   }
+
 
   def chapter_15_case_classes_and_pattern_matching(args: Array[String]): Unit = {
     //This chapter introduces case classes and pattern matching, twin constructs that support you when writing regular,
