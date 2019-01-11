@@ -5,6 +5,7 @@ import java.io._
 import scala.util.control.Breaks._
 import java.net.{MalformedURLException, URL}
 
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
 
@@ -36,11 +37,6 @@ object HelloWorld {
     chapterSeparator(chapter_14_assertions_and_unit_testing,14)(args)
     chapterSeparator(chapter_15_case_classes_and_pattern_matching,15)(args)
     chapterSeparator(chapter_16_working_with_lists,16)(args)
-    chapterSeparator(chapter_17_collections,17)(args)
-  }
-
-  def chapter_17_collections(args: Array[String]): Unit = {
-
   }
 
   def chapter_16_working_with_lists(args: Array[String]): Unit = {
