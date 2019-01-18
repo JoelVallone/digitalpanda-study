@@ -21,8 +21,13 @@ object HelloWorld17 {
     chapterSeparator(chapter_17_collections,17) { println("plop"); args }
     chapterSeparator(chapter_18_stateful_objects,18){ args }
     chapterSeparator(chapter_19_type_parametrization,19)( args )
+    chapterSeparator(chapter_20_abstract_members,20)( args )
   }
 
+  def chapter_20_abstract_members(args: Array[String]): Unit = {
+    //A member of a class or trait is abstract if the member does not have a complete definition in the class.
+    // Abstract members are intended to be imple- mented in subclasses of the class in which they are declared.
+  }
 
   def chapter_19_type_parametrization(args: Array[String]): Unit = {
     //We’re presenting type parameterization and information hiding together,
@@ -40,23 +45,275 @@ object HelloWorld17 {
     //Where a list is usually extended at the front, using a :: operation, a queue is extended at the end, using enqueue.
     //All three operations head, tail, and enqueue should operate in constant time.
     //The idea is to represent a queue by two lists (aka stack....), called leading and trailing :
-    class Queue[T](
-                    private val leading: List[T],
-                    private val trailing: List[T]
-                  ) {
+    class QueueTutorial[T] private(
+                                    private val leading: List[T],
+                                    private val trailing: List[T]
+                                  ) {
 
-      private def mirror = if (leading.isEmpty) new Queue(trailing.reverse, Nil) else this
+      private def mirror = if (leading.isEmpty) new QueueTutorial(trailing.reverse, Nil) else this
 
       def head = mirror.leading.head
 
       def tail = {
         val q = mirror
-        new Queue(q.leading.tail, q.trailing)
+        new QueueTutorial(q.leading.tail, q.trailing)
       }
 
       def enqueue(x: T) =
-        new Queue(leading, x :: trailing)
+        new QueueTutorial(leading, x :: trailing)
     }
+
+    //=> 19.2 Information hiding
+    //What’s needed is a way to hide this constructor from client code
+    // - Private constructors and factory methods
+    //In Java, you can hide a constructor by making it private.
+    // In Scala, the primary constructor does not have an explicit definition;
+    // it is defined implicitly by the class parameters and body.
+    // Nevertheless, it is still possible to hide the primary constructor by adding
+    // a private modifier in front of the class parameter list.
+    //1) One possibility is to add an auxiliary constructors:
+    class StrangeQueue[T] private(
+                                   private val leading: List[T],
+                                   private val trailing: List[T]
+                                 ) {
+      def this() = this(Nil, Nil)
+
+      def this(elems: T*) = this(elems.toList, Nil)
+    }
+    //2) Another possibility is to add a factory method that builds a queue from such a sequence of initial elements.
+    // A neat way to do this is to define an object Queue
+    // that has the same name as the class being defined and contains an apply method,
+    object QueueTutorial {
+      // constructs a queue with initial elements ‘xs’
+      def apply[T](xs: T*) = new QueueTutorial[T](xs.toList, Nil)
+    }
+    //By placing this object in the same source file as class Queue,
+    // you make the object a companion object of the class.
+    //A companion object has the same access rights as its class.
+    QueueTutorial(1, 2, 3)
+    QueueTutorial.apply(1, 2, 3) //<- same as QueueTutorial(1,2,3) since QueueTutorial is an object instead of a function.
+    // - An alternative: private classes
+    //Private constructors and private members are one way to hide the initialization and representation of a class.
+    // Another, more radical way is to hide the class itself and only export a trait that reveals the public interface
+    // of the class:
+    trait QueueSecretive[T] {
+      def head: T
+
+      def tail: QueueSecretive[T]
+
+      def enqueue(x: T): QueueSecretive[T]
+    }
+
+    object QueueSecretive {
+      def apply[T](xs: T*): QueueSecretive[T] = new QueueImpl[T](xs.toList, Nil)
+
+      private class QueueImpl[T](
+                                  private val leading: List[T],
+                                  private val trailing: List[T]) extends QueueSecretive[T] {
+
+        def mirror =
+          if (leading.isEmpty)
+            new QueueImpl(trailing.reverse, Nil)
+          else
+            this
+
+        def head: T = mirror.leading.head
+
+        def tail: QueueImpl[T] = {
+          val q = mirror
+          new QueueImpl(q.leading.tail, q.trailing)
+        }
+
+        def enqueue(x: T) =
+          new QueueImpl(leading, x :: trailing)
+      }
+
+    }
+
+    //=> 19.3 Variance annotations
+    //The variance annotations help to have more general operations as it allows subtypes to benefit from the logic targeting a reference type.
+    //Queue is not a type because it takes a type parameter. As a result, you cannot create variables of type Queue.
+    //Instead, trait Queue enables you to specify parameterized types, such as Queue[String].
+    //Queue is also called a TYPE CONSTRUCTOR
+    //You can also say that Queue is a GENERIC trait. The term “generic” means that you are defining many specific
+    // types with one generically written class or trait.
+    //More generally, if S is a subtype of type T, then should Queue[S] be considered a subtype of Queue[T] ?
+    //If so, you could say that trait Queue is COVARIANT (or “flexible”) in its type parameter T.
+    // A covariant annotation can be applied to a type parameter of a class or trait by putting a plus sign (+)
+    // before the type parameter. The class or trait then subtypes co-variantly with—in the same direction as—the
+    // type annotated parameter. For example, List is covariant in its type parameter,
+    // so List[String] is a subtype of List[Any].
+    //In Scala, however, generic types have by default NON-VARIANT (or, “rigid”) sub-typing.
+    //  A Queue[String] would not be usable as a Queue[AnyRef]
+    //However, you can demand covariant (flexible) subtyping of queues by changing the first line of the definition of
+    // class Queue like this:> trait Queue[+T] { ... }
+    // Prefixing a formal type parameter with a + indicates that subtyping is covariant (flexible) in that parameter
+    //Prefix -, which indicates CONTRAVARIANT subtyping
+    // The class or trait then subtypes contravariantly with— in the opposite direction as—the type annotated
+    // parameter. For ex- ample, Function1 is contravariant in its first type parameter,
+    // and so Function1[Any, Any] is a subtype of Function1[String, Any].
+    //Whether a type parameter is covariant, contravariant, or nonvariant is called the parameter’s VARIANCE
+    //The + and - symbols you can place next to type parameters are called VARIANCE ANNOTATIONS.
+    //In a purely functional world, many types are naturally covariant (flexi- ble).
+    // However, the situation changes once you introduce mutable data.
+    /*
+      //Assume mutable Cell[+T] <= would not compile because Cell is mutable and declared contravariant Cell[T] in scala lib
+      val c1 = new Cell[String]("abc")
+      val c2: Cell[Any] = c1
+      c2.set(1)
+      val s: String = c1.get
+     */
+    //Taken together, these four lines end up assigning the integer 1 to the string s
+    //Which operation is to blame for the runtime fault? It must be the second one, which uses covariant sub-typing.
+
+    //- Variance and arrays
+    //In principle, arrays are just like cells except that they can have more than one element.
+    // Nevertheless, arrays are treated as covariant in Java.
+    /*
+      //This is Java
+      String[] a1 = { "abc" };
+      Object[] a2 = a1;
+      a2[0] = new Integer(17);
+      String s = a1[0];
+     */
+    //If you try out this example, you will find that it compiles, but executing the program
+    // will cause an ArrayStore exception to be thrown when a2[0] is assigned to an Integer !
+    //What happens here is that Java stores the element type of the array at run- time.
+    // Then, every time an array element is updated, the new element value is checked against the stored type.
+    // If it is not an instance of that type, an ArrayStore exception is thrown.
+    // There was a good reason. see page 432...
+    //Scala treats arrays as non-variant.
+
+    //=> 19.4 Checking variance annotations
+    //As soon as a generic parameter type appears as the type of a method parameter,
+    // the containing class or trait may not be covariant in that type parameter (mutable or not).
+
+    //=> 19.5 Lower bounds
+    //The previous definition of Queue[T] shown in Listing 19.4 cannot be made covariant in T because T appears as
+    // a type of a parameter of the enqueue method.
+    //There’s a way to get unstuck: you can generalize enqueue by making it polymorphic
+    // (i.e., giving the enqueue method itself a type parameter) and using a lower bound for its type parameter.
+    class Queue[+T](private val leading: List[T], // <- Covariant in T
+                    private val trailing: List[T]) {
+      def enqueue[U >: T](x: U) = //<- input type U has T as lower bound <=> U is required to be a supertype of T
+        new Queue[U](leading, x :: trailing)
+    }
+    //As an example, suppose there is a class Fruit with two subclasses, Apple and Orange.
+    // With the new definition of class Queue, it is possible to append an Orange to a Queue[Apple].
+    // The result will be a Queue[Fruit]. This revised definition of enqueue is type correct.
+    //They are a good example of TYPE-DRIVEN(constrained...) DESIGN, where the types of an interface guide
+    // its detailed design and implementation.
+    //Adding a lower bound makes enqueue more general and queues as a whole more usable.
+
+    //19.6 Contra-variance
+    trait OutputChannel[-T] {
+      def write(x: T)
+    }
+    //So an output channel of AnyRefs (Object in java), is a subtype of an output channel of Strings.
+    //This reasoning points to a general principle in type system design:
+    // It is safe to assume that a type T is a subtype of a type U if you can substitute a value of type T
+    // wherever a value of type U is required.
+    // This is called the LISKOV SUBSTITUTION PRINCIPLE.
+    // The principle holds if T supports the same operations as U and all of T’s operations require less and provide more => WHY !?
+    //In the case of output channels, an OutputChannel[AnyRef] can be a subtype of an OutputChannel[String] because
+    // the two support the same write operation, and this operation re- quires less in OutputChannel[AnyRef] than
+    // in OutputChannel[String].
+    // “Less” means the argument is only required to be an AnyRef in the first case,
+    // whereas it is required to be a String in the second case.
+
+    trait FunctionTutorial1[-S, +T] {
+      def apply(x: S): T
+    }
+    //This satisfies the Liskov substitution principle, because arguments are something that’s required,
+    // whereas results are something that’s provided.
+    class Publication(val title: String)
+    class Book(title: String) extends Publication(title)
+    object Library {
+      val books: Set[Book] =
+        Set(
+          new Book("Programming in Scala"),
+          new Book("Walden")
+        )
+
+      def printBookList(info: Book => AnyRef) { // <- THE BODY OF THE printBookList METHOD WILL ONLY BE ALLOWED TO PASS A Book INTO THE FUNCTION !
+        for (book <- books) println(info(book)) // <- println can work on AnyRef down to String (and even deeper). Indeed, String implements all that Anyref has and println relies on Anyref interface.
+      }
+    }
+    object Customer { // extends Application {
+      def getTitle(p: Publication): String = p.title
+
+      Library.printBookList(getTitle)
+    }
+
+    //=> 19.7 Object private data
+    //We build a new implementation of Queue, which performs at most one trailing to leading adjustment for any
+    // sequence of head operations by adding some judicious side effects.
+    class EfficientQueue[+T] private (
+                              private[this] var leading: List[T], // <- accesses to private variables from the same object in which they are defined do not cause problems with variance.
+                              private[this] var trailing: List[T]
+                            ){
+      private def mirror() =
+        if (leading.isEmpty) {
+          while (!trailing.isEmpty) {
+            leading = trailing.head :: leading
+            trailing = trailing.tail
+          }
+        }
+      def head: T = {
+        mirror()
+        leading.head
+      }
+      def tail: EfficientQueue[T] = {
+        mirror()
+        new EfficientQueue(leading.tail, trailing)
+      }
+      def enqueue[U >: T](x: U) =
+        new EfficientQueue[U](leading, x :: trailing)
+    }
+
+    //=> 19.8 Upper bounds
+    class Person(val firstName: String, val lastName: String)
+      extends Ordered[Person] {
+      def compare(that: Person) = {
+        val lastNameComparison =
+          lastName.compareToIgnoreCase(that.lastName)
+        if (lastNameComparison != 0)
+          lastNameComparison
+        else
+          firstName.compareToIgnoreCase(that.firstName)
+      }
+      override def toString = firstName +" "+ lastName
+    }
+    val robert = new Person("Robert", "Jones")
+    val sally = new Person("Sally", "Smith")
+    println("robert < sally: " +  (robert < sally))
+    def orderedMergeSort[T <: Ordered[T]](xs: List[T]): List[T] = { //<- T must be a trait/subtype of Ordered[T] Type, Ordered[T] is the upper bound
+      def merge(xs: List[T], ys: List[T]): List[T] =
+        (xs, ys) match {
+          case (Nil, _) => ys
+          case (_, Nil) => xs
+          case (x :: xs1, y :: ys1) =>
+            if (x < y) x :: merge(xs1, ys)
+            else y :: merge(xs, ys1)
+        }
+      val n = xs.length / 2
+      if (n == 0) xs
+      else {
+        val (ys, zs) = xs splitAt n
+        merge(orderedMergeSort(ys), orderedMergeSort(zs))
+      }
+    }
+    val people = List(
+      new Person("Larry", "Wall"),
+      new Person("Anders", "Hejlsberg"),
+      new Person("Guido", "van Rossum"),
+      new Person("Alan", "Kay"),
+      new Person("Yukihiro", "Matsumoto")
+    )
+    val sortedPeople = orderedMergeSort(people)
+    println("orderedMergeSort(people): " + orderedMergeSort(people))
+    //Tt isn’t actually the most general way in Scala to design a sort function that takes advantage of the Ordered trait.
+    //You couldn’t use the orderedMergeSort function to sort a list of integers, because class Int is not a subtype of Ordered[Int]
   }
 
   def chapter_18_stateful_objects(args: Array[String]): Unit = {
