@@ -1,5 +1,8 @@
 package com.digitalpanda.scala.playground
 
+import java.io.PrintWriter
+import java.util.Date
+
 import com.digitalpanda.scala.playground.circuit.CircuitSimulation
 
 import scala.collection.immutable.{Queue, TreeMap, TreeSet}
@@ -22,11 +25,205 @@ object HelloWorld17 {
     chapterSeparator(chapter_18_stateful_objects,18){ args }
     chapterSeparator(chapter_19_type_parametrization,19)( args )
     chapterSeparator(chapter_20_abstract_members,20)( args )
+    chapterSeparator(chapter_21_implicit_conversions_and_parameters,21)( args )
+  }
+
+  def chapter_21_implicit_conversions_and_parameters(args: Array[String]): Unit = {
+
   }
 
   def chapter_20_abstract_members(args: Array[String]): Unit = {
     //A member of a class or trait is abstract if the member does not have a complete definition in the class.
-    // Abstract members are intended to be imple- mented in subclasses of the class in which they are declared.
+    // Abstract members are intended to be implemented in subclasses of the class in which they are declared.
+
+    //=> 20.1 A quick tour of abstract members
+    // Besides methods, you can also declare abstract fields and even abstract types as members of classes and traits:
+    trait AllAbstract {
+      type T
+      def transform(x: T): T
+      val initial: T
+      var current: T
+    }
+
+    class Concrete extends AllAbstract {
+      type T = String
+      def transform(x: String) = x + x
+      val initial = "hi"
+      var current = initial
+    }
+
+    //=> 20.2 Type members
+    //The term abstract type in Scala means a type declared (with the “type” keyword) to be a member of a class or trait,
+    // without specifying a definition.
+
+    //=> 20.3 Abstract vals
+    //An abstract val declaration has a form like:
+    //        val initial: String
+    //It gives a name and type for a val, but not its value. This value has to be provided by a
+    // concrete val definition in a subclass.
+    //Abstract method declarations, on the other hand, may be implemented by both concrete method definitions
+    // and concrete val definitions.
+
+    //=> 20.4 Abstract vars
+    //Like an abstract val, an abstract var declares just a name and a type, but not an initial value.
+    //vars declared as members of classes come equipped with getter and setter methods.
+    // This holds for abstract vars as well. If you declare an abstract var named hour,
+    // for example, you implicitly declare an abstract getter method, hour, and an abstract setter method,
+    // hour_=. There’s no reassignable field to be defined
+    trait AbstractTime {
+      var hour: Int
+      var minute: Int
+    }
+    // <=>
+    trait AbstractTimeFieldLess {
+      def hour: Int         // getter for ‘hour’
+      def hour_=(x: Int)    // setter for ‘hour’
+      def minute: Int       // getter for ‘minute’
+      def minute_=(x: Int)  // setter for ‘minute’
+    }
+
+    //=> 20.5 Initializing abstract vals
+    trait RationalTrait {
+      val numerArg: Int
+      val denomArg: Int
+    }
+    //A class parameter argument is evaluated before it is passed to the class constructor
+    // (unless the parameter is by-name ( => )).
+    class Rational(n: Int, d : Int) extends RationalTrait {
+      override val numerArg: Int = n
+      override val denomArg: Int = d
+    }
+    new Rational(1, 2)
+    //An implementing val definition in a subclass, by contrast, is evaluated only after the superclass has been initialized.
+    // This expression yields an instance of an anonymous class that mixes in the trait and is defined by the body.
+    new RationalTrait {
+      val numerArg = 1
+      val denomArg = 2
+    }
+    //A class parameter argument is evaluated before it is passed to the class constructor (unless the parameter is by-name).
+    // An implementing val definition in a subclass, by contrast, is evaluated only after the superclass has been initialized.
+    //Is it possible to define a RationalTrait that can be initialized robustly, without fearing errors due to uninitialized fields?
+    // => two alternative solu- tions to this problem, pre-initialized fields and lazy vals.
+
+    //- Pre-initialized fields
+    //Initialize a field of a subclass before the superclass is called... :
+    new {
+      val numerArg = 1
+      val denomArg = 2
+
+      //val denomArg = this.numerArg * 2 // <= does not work: If such an initializer refers to this, the reference goes to the object containing the class or object that’s being constructed (empty), not the constructed object itself
+    } with RationalTrait
+
+    //- Lazy vals
+    //If you prefix a val definition with a lazy modifier, the initializing expression on the right-hand side
+    // will only be evaluated the first time the val is used.
+    //lazy vals are an ideal complement to functional objects, where the order of initializations does not matter,
+    // as long as every- thing gets initialized eventually.
+    //They are less well suited for code that’s predominantly imperative.
+    object Demo {
+      val x = { println(" -> initializing x"); "done" }
+    }
+    println("Demo ref: "); Demo
+    println()
+    println("Demo.x: " + Demo.x)
+    object LazyDemo {
+      lazy val x = { println(" -> initializing x"); "done" }
+    }
+    println()
+    println("LazyDemo ref: ");LazyDemo
+    println()
+    println("LazyDemo.x: " + LazyDemo.x)
+
+    //=> 20.6 Abstract types
+    class Food
+    abstract class Animal {
+      type SuitableFood <: Food // <- abstract class defined by child : a Cow specifically eats Grass
+      def eat(food: SuitableFood)
+    }
+    class Grass extends Food
+    class Cow extends Animal {
+      type SuitableFood = Grass
+      override def eat(food: Grass) {}
+    }
+
+    //=> 20.7 Path-dependent types
+    //Objects in Scala can have types as members (like a variable)!
+    //A type like bessy.SuitableFood is called a path-dependent type.
+    // The word “path” here means a reference to an object.
+    //The term “path-dependent type” says, the type depends on the path: in general, different paths give
+    // rise to different types. For instance, say you defined classes DogFood and Dog, like this:
+    class DogFood extends Food
+    class Dog extends Animal {
+      type SuitableFood = DogFood
+      override def eat(food: DogFood) {}
+    }
+    val bessy = new Cow
+    val lassie = new Dog
+    //lassie eat (new bessy.SuitableFood) // <- compile error: type mismatch
+    val bootsie = new Dog
+    lassie eat (new bootsie.SuitableFood) // <- Because Dog’s SuitableFood type is defined to be an alias for class DogFood,
+                                          //     the SuitableFood types of two Dogs are in fact the same.
+    class Outer {
+      class Inner
+    }
+    //In Scala, the inner class is addressed using the expression Outer#Inner
+    val o1 = new Outer
+    val o2 = new Outer
+    //Here o1.Inner and o2.Inner are two path-dependent types (and they are different types).
+    // Both of these types conform to (are subtypes of) the more general type Outer#Inner,
+    // which represents the Inner class with an arbitrary outer object of type Outer.
+    //In Scala, as in Java, inner class instances hold a reference to an enclosing outer class instance.
+    // This allows an inner class, for example, to access mem- bers of its outer class.
+    // Type o1.Inner refers to the Inner class with a specific outer object (the one referenced from o1).
+    new o1.Inner
+    //By contrast, because the type Outer#Inner does not name any specific instance of Outer,
+    // you can’t create an instance of it:
+    //new Outer#Inner //<- Will not compile
+
+    //=> 20.8 Structural sub-typing
+    //When a class inherits from another, the first class is said to be a nominal subtype of the other one.
+    // It’s a NOMINAL SUBTYPE because each type has a name, and the names are explicitly declared to have a subtyping
+    // relationship.
+    //Scala additionally supports STRUCTURAL SUBTYPEing, where you get a subtyping relationship simply because
+    // two types have the same members.
+    //refinement type: A type formed by supplying a base type a number of members inside curly braces.
+    //A widget can draw(), and a Western cowboy can draw(), but they aren’t really substitutable.
+    // You’d typically prefer to get a compilation error (by relying on nominal subtypes) if you tried to substitute a cowboy for a widget.
+    class Pasture {
+      var animals: List[Animal { type SuitableFood = Grass }] = Nil //<- The list type is a structural type for Animals that eats grass...
+      // ...
+    }
+    def using[T <: { def close(): Unit }, S](obj: T)(operation: T => S) = {
+      val result = operation(obj)
+      obj.close() // <- the only need for the class is to define the close method !!!!
+      result
+    }
+    using(new PrintWriter("date.txt")) { writer =>
+      writer.println(new Date)
+    }
+
+    //=> 20.9 Enumerations
+    object Color extends Enumeration {
+      val Red, Green, Blue = Value
+    }
+    object Direction extends Enumeration {
+      val North = Value("To the North!")
+      val East = Value("To the East!")
+      val South = Value("To the South!")
+      val West = Value("To the West!")
+    }
+    println("Direction.North: " + Direction.North)
+    print("Iterate: "); for (d <- Direction.values) print(d +" "); println()
+    println("Direction.North.id: " + Direction.North.id)
+    println("Direction(0): " + Direction(0))
+
+    //=> 20.10 Case study: Currencies
+    //See the files in the following package:
+    import currencies._
+    println("Japan.Yen.from(US.Dollar * 100): " + Japan.Yen.from(US.Dollar * 100))
+
+
+
   }
 
   def chapter_19_type_parametrization(args: Array[String]): Unit = {
