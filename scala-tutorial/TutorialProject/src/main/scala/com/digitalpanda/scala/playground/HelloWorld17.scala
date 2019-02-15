@@ -1,9 +1,11 @@
 package com.digitalpanda.scala.playground
 
+import java.awt.event.{ActionEvent, ActionListener}
 import java.io.PrintWriter
 import java.util.Date
 
 import com.digitalpanda.scala.playground.circuit.CircuitSimulation
+import javax.swing.JButton
 
 import scala.collection.immutable.{Queue, TreeMap, TreeSet}
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
@@ -26,10 +28,253 @@ object HelloWorld17 {
     chapterSeparator(chapter_19_type_parametrization,19)( args )
     chapterSeparator(chapter_20_abstract_members,20)( args )
     chapterSeparator(chapter_21_implicit_conversions_and_parameters,21)( args )
+    chapterSeparator(chapter_22_implementing_lists,22)( args ) // <= Skipped
+  }
+
+  def chapter_22_implementing_lists(args: Array[String]): Unit = {
+    //=> 22.1 The List class in principle
+    // Lists are not “built-in” as a language construct in Scala; they are defined by
+    //an abstract class List in the scala package, which comes with two sub-
+    //classes for :: and Nil .
+    1::2::Nil ;/* <=> */ ::(1,::(2,Nil)) ;/* <=>  */ Nil.::(2).::(1)
+    println(1::2::Nil)
+    println(::(1,::(2,Nil)))
+    println( Nil.::(2).::(1))
+    //==> List construction:
+    //The list construction methods :: and ::: are special. Because they end in
+    //a colon, they are bound to their right operand. That is, an operation such
+    //as x :: xs is treated as the method call xs.::(x) , not x.::(xs)
+
+    //=> 22.2 The ListBuffer class
+    //The typical access pattern for a list is recursive.
+    def incAll(xs: List[Int]): List[Int] = xs match {
+      case List() => List()
+      case x :: xs1 => x + 1 :: incAll(xs1)
+    }
+    //One shortcoming of this program pattern is that it is not tail recursive.
+    //On today’s virtual machines this means that you cannot apply incAll to
+    // lists of much more than about 30,000 to 50,000 elements...
+    //One approach to avoid this problem is to use a loop..
+    val xs = 1::2::3::Nil
+    val buf = new ListBuffer[Int]
+    for (x <- xs) buf += x + 1
+    //This is a very efficient way to build lists. In fact, the list buffer implemen-
+    //tation is organized so that both the append operation ( += ) and the toList
+    //operation take (very short) constant time.
   }
 
   def chapter_21_implicit_conversions_and_parameters(args: Array[String]): Unit = {
+    //=> 21.1 Implicit conversions
+    // Implicit conversions are often helpful for working with
+    //two bodies of software that were developed without each other in mind. Each
+    //library has its own way to encode a concept that is essentially the same thing.
 
+    //As a WORD OF WARNING, implicits can make code confusing if they are
+    //used too frequently. Thus, before adding a new implicit conversion, first
+    //ask whether you can achieve a similar effect through other means, such as
+    //inheritance, mixin composition, or method overloading. If all of these fail,
+    //however, and you feel like a lot of your code is still tedious and redundant,
+    //then implicits might just be able to help you out.
+
+    //Java approach for events handling:
+    val button = new JButton
+    button.addActionListener(
+      new ActionListener {
+        def actionPerformed(event: ActionEvent) {
+          println("pressed!")
+        }
+      }
+    )
+
+    //Use implicit conversion to express same operation but with lighter syntax:
+   implicit def function2ActionListener(f: ActionEvent => Unit) =
+      new ActionListener {
+        def actionPerformed(event: ActionEvent) = f(event)
+      }
+
+    button.addActionListener( //<= Type mismatch if implicit conversion not used!
+      (_: ActionEvent) => println("pressed!")
+    )
+
+    //=> 21.2 Rules for implicits
+    // Implicit definitions are those that the compiler is allowed to insert into a
+    //program in order to fix any of its type errors
+    //==> Marking Rule: Only definitions marked implicit are available
+    //==> Scope Rule: An inserted implicit conversion must be in scope as a single
+    //    identifier, or be associated with the source or target type of the conver-
+    //    sion.
+    //    -> It is common for libraries to include a Preamble object including a number of
+    //    useful implicit conversions. Code that uses the library can then do a single
+    //    “ import Preamble._ ” to access the library’s implicit conversions.
+    //    -> There’s one exception to the “single identifier” rule. The compiler will
+    //    also look for implicit definitions in the companion object of the source or
+    //    expected target types of the conversion.
+    //    -> The Scope Rule helps with modular reasoning. If implicits took effect
+    //    system-wide, then to understand a file you would have to know about
+    //    every implicit introduced anywhere in the program!
+    //==> One-at-a-time Rule: Only one implicit is tried.
+    //==> Explicits-First Rule: Whenever code type checks as it is written, no
+    //    implicits are attempted.
+    //    Whenever code seems terse to the point of obscurity, you can insert
+    //      conversions explicitly.
+    // Where implicits are tried:
+    //==> Implicit conversions to an expected type let you use one type in a
+    //    context where a different type is expected.
+    //==> Conversions of the receiver let you adapt the receiver of a method call
+    //    , i.e., the object on which a method is invoked, if the method is not
+    //    applicable on the original type.
+    //    An example is "abc".exists , which is converted to stringWrapper("abc").exists
+    //    because the exists method is not available on String s but is available on
+    //    IndexedSeq s.
+    //==> Implicit parameters, on the other hand, are usually used to
+    //    provide more information to the called function about what the caller
+    //    wants.
+    //    Implicit parameters are especially useful with generic functions, where the
+    //    called function might otherwise know nothing at all about the type of one
+    //    or more arguments.
+
+    //=> 21.3 Implicit conversion to an expected type
+    // Whenever the compiler sees an X, but needs a Y, it will look for an
+    // implicit function that converts X to Y.
+    implicit def doubleToInt(x: Double) = x.toInt
+    val i: Int = 3.5 //<= implicitly translated to>val i: Int = doubleToInt(3.5)
+    //It makes much more sense to go the other way, from some more constrained type
+    // to a more general one.
+
+    //=> 21.4 Converting the receiver
+    //==> Inter-operating with new types
+    // One major use of receiver conversions is allowing smoother integration of
+    //new with existing types. In particular, they allow you to enable client
+    //programmers to use instances of existing types as if they were instances
+    // of your new type.
+    implicit def intToRational(x: Int) = new Rational(x, 1)
+    val j = 1 +  new Rational(1,2)
+    //==> Simulating new syntax
+    // Whenever you see someone calling methods that appear not
+    //to exist in the receiver class, they are probably using implicits. Similarly, if
+    //you see a class named RichSomething , e.g., RichInt or RichBoolean , that
+    //class is likely adding syntax-like methods to type Something .
+    Map(1 -> "one", 2 → "two", 3 -> "three")
+    // Have you wondered how the -> is supported? It’s not syntax! Instead, -> is
+    //a method of the class ArrowAssoc , a class defined inside the standard Scala
+    // preamble ( scala.Predef ).
+    /*
+    package scala
+    object Predef {
+      class ArrowAssoc[A](x: A) {
+        def -> [B](y: B): Tuple2[A, B] = Tuple2(x, y)
+      }
+      implicit def any2ArrowAssoc[A](x: A): ArrowAssoc[A] = new ArrowAssoc(x)
+      ...
+    }
+     */
+
+    //=> 21.5 Implicit parameters
+    // The remaining place the compiler inserts implicits is within argument lists.
+    //The compiler will sometimes replace someCall(a) with someCall(a)(b, c, d) ,
+    //or new SomeClass(a) with new SomeClass(a)(b, c, d) , thereby adding a miss-
+    //ing parameter list to complete a function call. It is the entire last curried
+    //parameter list that’s supplied, not just the last parameter. For this usage,
+    //not only must the inserted identifiers, such as b , c , and d in (b, c, d) , be
+    //marked implicit where they are defined, but also the last parameter list in
+    //someCall ’s or someClass ’s definition must be marked implicit.
+    class PreferredPrompt(val preference: String)
+    class PreferredDrink(val preference: String)
+    object Greeter {
+      //Note that the implicit keyword applies to an entire parameter list, not
+      //to individual parameters.
+      def greet(name: String)(implicit prompt: PreferredPrompt,
+                              drink: PreferredDrink) {
+        println("Welcome, "+ name +". The system is ready.")
+        print("But while you work, ")
+        println("why not enjoy a cup of "+ drink.preference +"?")
+        println(prompt.preference)
+      }
+    }
+    object JoesPrefs {
+      implicit val prompt = new PreferredPrompt("Yes, master> ")
+      implicit val drink = new PreferredDrink("tea")
+    }
+    val bobsPrompt = new PreferredPrompt("relax> ")
+    val bobsDrink = new PreferredDrink("coffee")
+    Greeter.greet("Bob")(bobsPrompt, bobsDrink) // <= prompt explicitly specified
+    import JoesPrefs._ // <= Statisfy implicits "Scope" rule for input parameters
+    Greeter.greet("Joe") // <= Implicit parameters...
+    // One thing to note about the previous examples is that we didn’t use
+    //String as the type of prompt or drink , even though ultimately it was a
+    //String that each of them provided through their preference fields. Be-
+    //cause the compiler selects implicit parameters by matching types of parame-
+    //ters against types of values in scope, implicit parameters usually have “rare”
+    //or “special” enough types that accidental matches are unlikely.
+    //...
+    def maxListImpParm[T](elements: List[T])
+                         (implicit orderer: T => Ordered[T]): T =
+      elements match {
+        case List() =>
+          throw new IllegalArgumentException("empty list!")
+        case List(x) => x
+        case x :: rest =>
+          val maxRest = maxListImpParm(rest)(orderer) // (orderer) may also be provided implicitly
+          if (orderer(x) > maxRest) x // (orderer) may also have been called implicitly
+          else maxRest
+      }
+    //This pattern is so common that the standard Scala library provides im-
+    //plicit “orderer” methods for many common types. You could therefore use
+    //this maxListImpParm method with a variety of types
+    println("maxListImpParm(List(1,5,10,3)): " + maxListImpParm(List(1,5,10,3)))
+    println("maxListImpParm(List(1.5, 5.2, 10.7, 3.14159)): " + maxListImpParm(List(1.5, 5.2, 10.7, 3.14159)))
+    println("maxListImpParm(List(\"one\", \"two\", \"three\")): " + maxListImpParm(List("one", "two", "three")))
+    //==> A style rule for implicit parameters: As a style rule, it is best to use a
+    //custom named type in the types of implicit parameters. That i, use at least
+    // one role-determining name within the type of an implicit parameter.
+
+    //=>21.6 View bounds (deprecated => use implicit parameter...)
+    // The previous example had an opportunity to use an implicit but did not. Note
+    //that when you use implicit on a parameter, then not only will the compiler
+    //try to supply that parameter with an implicit value, but the compiler will also
+    //use that parameter as an available implicit in the body of the method!
+    //Thus, the implicit conversion parameter does not even need a name (or to be mentioned):
+    def maxList[T <% Ordered[T]](elements: List[T]): T =
+    elements match {
+      case List() =>
+        throw new IllegalArgumentException("empty list!")
+      case List(x) => x
+      case x :: rest =>
+        val maxRest = maxList(rest) // (orderer) is implicit
+        if (x > maxRest) x // orderer(x) is implicit
+        else maxRest
+    }
+    //You can think of “ T < % Ordered[T] ” as saying, “I can use any T , so long
+    //as T can be treated as an Ordered[T] .” (as long as n implicit conversion from T to Ordered[T] exists and is in scope).
+    // This is different from saying that T is an Ordered[T] , which is what
+    // an upper bound, “ T <: Ordered[T] ”, would say.
+
+    //=> 21.7 When multiple conversions apply
+    // It can happen that multiple implicit conversions are in scope that would each
+    //work. For the most part, Scala refuses to insert a conversion in such a case.
+    // Scala 2.8 loosens this rule. If one of the available conversions is strictly
+    //more specific than the others, then the compiler will choose the more specific
+    //one.
+    //To be more precise, one implicit conversion is more specific than another
+    //if one of the following applies:
+    // • The argument type of the former is a subtype of the latter’s.
+    // • Both conversions are methods, and the enclosing class of the former
+    //extends the enclosing class of the latter.
+    //The motivation to revisit this issue and revise the rule was to improve in-
+    //ter-operation between Java collections, Scala collections, and strings.$
+
+    //=> 21.8 Debugging implicits
+    // Sometimes you might wonder why the compiler did not find an implicit
+    //conversion that you think should apply. In that case it helps to write the
+    //conversion out explicitly. If that also gives an error message, you then know
+    //why the compiler could not apply your implicit.
+    //On the other hand, it’s also possible that inserting the conversion
+    //explicitly will make the error go away. In that case you know that one of the
+    //other rules (such as the Scope Rule) was preventing the implicit conversion
+    //from being applied.
+    // When you are debugging a program, it can sometimes help to see what
+    //implicit conversions the compiler is inserting. The -Xprint:typer option
+    //to the compiler is useful for this.
   }
 
   def chapter_20_abstract_members(args: Array[String]): Unit = {
