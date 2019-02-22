@@ -28,7 +28,181 @@ object HelloWorld17 {
     chapterSeparator(chapter_19_type_parametrization,19)( args )
     chapterSeparator(chapter_20_abstract_members,20)( args )
     chapterSeparator(chapter_21_implicit_conversions_and_parameters,21)( args )
-    chapterSeparator(chapter_22_implementing_lists,22)( args ) // <= Skipped
+    chapterSeparator(chapter_22_implementing_lists,22)( args )
+    chapterSeparator(chapter_23_for_expressions_revisited,23)( args )
+  }
+
+  def chapter_23_for_expressions_revisited(args: Array[String]): Unit = {
+    //higher-order functions such as map, flatMap, and filter provide powerful constructions for dealing with lists.
+    // But sometimes the level of abstraction required by these functions makes a program a bit hard to understand.
+    case class Person(name: String, isMale: Boolean, children: Person*)
+    val lara = Person("Lara", false)
+    val bob = Person("Bob", true)
+    val julie = Person("Julie", false, lara, bob)
+    val persons = List(lara, bob, julie)
+    val res2 = persons
+      .withFilter(p => !p.isMale)
+      .flatMap(p =>
+        p.children.map(c => (p.name, c.name)))
+    /* <=> */
+    val res1 =  for (p <- persons; if !p.isMale; c <- p.children)
+                yield (p.name, c.name)
+    println("(mother,child) pairs: " + res1)
+    //More generally, all for expressions that yield a re- sult are translated by the compiler into combinations of
+    // invocations of the higher-order methods map, flatMap, and withFilter.
+
+    //for ( SEQ ) yield expr
+    // Here, SEQ is a sequence of generators, definitions, and filters, with semicolons between successive elements:
+    for {
+      p <- persons            // a generator
+      n = p.name              // a definition
+      if n startsWith "To"    // a filter
+    } yield n
+    //A GENERATOR is of the form:
+    // pat <- expr
+    //The expression expr typically returns a list, even though you will see later that this can be generalized.
+    // The pattern pat gets matched one-by-one against all elements of that list. If the match succeeds,
+    // the variables in the pattern get bound to the corresponding parts of the element.
+    // But if the match fails, no MatchError is thrown. Instead, the element is simply discarded from the iteration.
+    //A FILTER is of the form:
+    //if expr
+    //Here, expr is an expression of type Boolean. The filter drops from the iteration all elements for which expr returns false.
+    //Every for expression starts with a generator. If there are several generators in a for expression,
+    // later generators vary more rapidly than earlier ones;
+    val res3 =  for (x <- List(1, 2); y <- List("one", "two"))
+                yield (x, y)
+    println("Multiple generators :" + res3)
+
+    //=> 23.2 The n-queens problem
+    //A particularly suitable application area of for expressions are combinatorial puzzles.
+    // An example of such a puzzle is the 8-queens problem: Given a standard chess-board, place eight queens such
+    // that no queen is in check from any other (a queen can check another piece if they are on the same
+    // column, row, or diagonal).
+    def queens(n: Int): List[List[(Int, Int)]] = {
+
+      def placeQueens(k: Int): List[List[(Int, Int)]] =
+        if (k == 0)
+          List(List())
+        else for {
+          queens <- placeQueens(k - 1)
+          column <- 1 to n
+          queen = (k, column)
+          if isSafe(queen, queens)
+        } yield queen :: queens
+
+      def isSafe(queen: (Int, Int), queens: List[(Int, Int)]) =
+        queens forall (q => !inCheck(queen, q))
+      def inCheck(q1: (Int, Int), q2: (Int, Int)) =
+        q1._1 == q2._1 ||  // same row
+          q1._2 == q2._2 ||  // same column
+          (q1._1 - q2._1).abs == (q1._2 - q2._2).abs // on diagonal
+
+      placeQueens(n)
+    }
+    println("Solutions for the 8-queens chess problem: " + queens(8))
+
+    //=> 23.3 Querying with for expressions
+    //The for notation is essentially equivalent to common operations of database query languages.
+    case class Book(title: String, authors: String*)
+    val books: List[Book] =
+      List(
+        Book(
+          "Structure and Interpretation of Computer Programs",
+          "Abelson, Harold", "Sussman, Gerald J."
+        ), Book(
+          "Principles of Compiler Design",
+          "Aho, Alfred", "Ullman, Jeffrey"
+        ),
+        Book(
+          "Programming in Modula-2",
+          "Wirth, Niklaus"
+        ), Book(
+          "Elements of ML Programming",
+          "Ullman, Jeffrey"
+        ), Book(
+          "The Java Language Specification", "Gosling, James",
+          "Joy, Bill", "Steele, Guy", "Bracha, Gilad"
+        )
+      )
+
+    //All books whose author’s last name is "Gosling"
+    for (b <- books; a <- b.authors
+         if a startsWith "Gosling")
+      yield b.title
+
+    //All books that have the string “Program” in their title:
+    for (b <- books if (b.title indexOf "Program") >= 0)
+      yield b.title
+
+    //All authors that have written at least two books in the database
+    def removeDuplicates[A](xs: List[A]): List[A] = {
+      if (xs.isEmpty) xs
+      else
+        xs.head :: removeDuplicates(
+          xs.tail filter (x => x != xs.head)
+        )
+    }
+    removeDuplicates(
+      for (b1 <- books; b2 <- books if b1 != b2;
+         a1 <- b1.authors; a2 <- b2.authors if a1 == a2)
+      yield a1
+    )
+
+    //=> 23.4 Translation of for expressions
+    //Every for expression can be expressed in terms of the three higher-order functions map, flatMap, and withFilter.
+    // This section describes the translation scheme, which is also used by the Scala compiler:
+    // /* seq is an arbitrary sequence of generators */
+    //  1) for (x <- expr1) yield expr2; <=> expr1.map(x => expr2);
+    //  2) for (x <- expr1 if expr2) yield expr3; <=> expr1 withFilter (x => expr2) map (x => expr3)
+    //  3) for (x <- expr1 if expr2; seq) yield expr3 <=> for (x <- expr1 withFilter expr2; seq) yield expr3
+    //  4) for (x <- expr1; y <- expr2; seq) yield expr3 <=> expr1.flatMap(x => for (y <- expr2; seq) yield expr3)
+
+    //All authors that have written at least two books in the database
+    //Apply rule 4)
+    books.flatMap( b1 =>
+      for (b2 <- books if b1 != b2;
+           a1 <- b1.authors; a2 <- b2.authors if a1 == a2)
+        yield a1)
+    //Apply rule 3)
+    books.flatMap( b1 =>
+      books.withFilter( b2 => b1 != b2)
+      .flatMap( b2 => for (a1 <- b1.authors; a2 <- b2.authors if a1 == a2)
+        yield a1))
+    //Apply rule 4)
+    books.flatMap( b1 =>
+      books.withFilter( b2 => b1 != b2)
+        .flatMap( b2 => b1.authors.flatMap( a1 => for (a2 <- b2.authors if a1 == a2)
+          yield a1)))
+    //Apply rule 2)
+    books.flatMap( b1 =>
+      books.withFilter( b2 => b1 != b2).flatMap( b2 =>
+        b1.authors.flatMap( a1 =>
+          b2.authors.withFilter( a2 => a1 == a2).map( _ => a1).head)))
+
+    //==> Translating patterns in generators
+    //The translation scheme becomes more complicated if the left hand side of generator is a pattern, pat,
+    // other than a simple variable
+    // 5) for ((x1, ..., xn) <- expr1) yield expr2 <=> expr1.map { case (x1, ..., xn) => expr2 }
+    // 6) for (pat <- expr1) yield expr2 <=>
+    /*    expr1 withFilter {
+            case pat => true
+            case _ => false
+          } map {
+          case pat => expr2
+          }                                                            */
+    //==> Translating definitions
+    // 7) for (x <- expr1; y = expr2; seq) yield expr3 <=> for ((x, y) <- for (x <- expr1) yield (x, expr2); seq) yield expr3
+    //So you see that expr2 is evaluated each time there is a new x value being generated.
+    // This re-evaluation is necessary, because expr2 might refer to x and so needs to be re-evaluated for
+    // changing values of x.
+    /*
+        val y = expensiveComputationNotInvolvingX
+        for (x <- 1 to 1000) yield x * y
+        //IS BETTER THAN
+        for (x <- 1 to 1000; y = expensiveComputationNotInvolvingX)
+        yield x * y                                                    */
+
+    //==> Translating for loops
   }
 
   def chapter_22_implementing_lists(args: Array[String]): Unit = {
@@ -51,6 +225,7 @@ object HelloWorld17 {
       case List() => List()
       case x :: xs1 => x + 1 :: incAll(xs1)
     }
+
     //One shortcoming of this program pattern is that it is not tail recursive.
     //On today’s virtual machines this means that you cannot apply incAll to
     // lists of much more than about 30,000 to 50,000 elements...
@@ -58,9 +233,36 @@ object HelloWorld17 {
     val xs = 1::2::3::Nil
     val buf = new ListBuffer[Int]
     for (x <- xs) buf += x + 1
+    buf.toList
     //This is a very efficient way to build lists. In fact, the list buffer implemen-
     //tation is organized so that both the append operation ( += ) and the toList
     //operation take (very short) constant time.
+
+    //=> 22.3 The List class in practice
+    // (The internal implementation almost not functional at all !)
+    //Most methods in the real implementation of class List avoid recursion and use loops with list buffers instead:
+    /*
+    final override def map[U](f: T => U): List[U] = {
+          val b = new ListBuffer[U]
+          var these = this
+          while (!these.isEmpty) {
+            b += f(these.head)
+            these = these.tail
+          }
+      b.toList }
+     */
+    //A tail recursive implementation would be similarly efficient, but a general recursive implementation would
+    // be slower and less scalable.
+    //The .toList method takes only a small num- ber of cycles, which is independent of the length of the list.
+
+    //=> 22.4 Functional on the outside
+    //This is a typical strategy in Scala programming: trying to combine purity with efficiency by carefully
+    // delimiting the effects of impure operations.
+    //The design of Scala’s List and ListBuffer is quite similar to what’s done in Java’s pair of classes String and
+    // StringBuffer. This is no coincidence. In both situations the designers wanted to maintain a pure
+    // immutable data structure but also wanted to provide an efficient way to construct this structure incrementally.
+    //Usually, :: lends itself well to recursive algorithms in the divide-and-conquer style.
+    // List buffers are often used in a more traditional loop-based style.
   }
 
   def chapter_21_implicit_conversions_and_parameters(args: Array[String]): Unit = {
