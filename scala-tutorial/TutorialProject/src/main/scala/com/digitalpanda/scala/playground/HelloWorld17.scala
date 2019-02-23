@@ -30,6 +30,74 @@ object HelloWorld17 {
     chapterSeparator(chapter_21_implicit_conversions_and_parameters,21)( args )
     chapterSeparator(chapter_22_implementing_lists,22)( args )
     chapterSeparator(chapter_23_for_expressions_revisited,23)( args )
+    chapterSeparator(chapter_24_the_scala_collections_api,24)( args )
+  }
+
+  def chapter_24_the_scala_collections_api(args: Array[String]): Unit = {
+  /*
+  Easy to use: A small vocabulary of twenty to fifty methods is enough to
+      solve most collection problems in a couple of operations.
+  Concise: You can achieve with a single word what used to take one or
+      several loops.
+  Safe: The statically typed and functional nature of Scala’s collections means
+      that the overwhelming majority of errors you might make are caught at
+      compile-time.
+  Fast: Collection operations are tuned and optimized in the libraries.
+      What’s more, collections are currently being adapted to parallel
+      execution on multi-cores: https://docs.scala-lang.org/overviews/parallel-collections/overview.html
+  Universal: Collections provide the same operations on any type where it
+      makes sense to do so.
+   */
+    //=> 24.0 Parallel collections
+    //As a general heuristic, speed-ups tend to be noticeable when the size of
+    // the collection is large, typically several thousand elements.
+    val list = (1 to 10000).toList
+    list.map(_ + 42)
+    //Parallel version then again converted to sequential version
+    list.par.map(_ + 42).seq
+    //Collections that are inherently sequential (in the sense that the elements
+    // must be accessed one after the other), like lists, queues, and streams,
+    // are converted to their parallel counterparts by copying the elements into
+    // a similar parallel collection.
+    //Conceptually, Scala’s parallel collections framework parallelizes an
+    // operation on a parallel collection by recursively “splitting” a given
+    // collection, applying an operation on each partition of the collection in
+    // parallel, and re-“combining” all of the results that were completed in parallel.
+    // => Side-effecting operations can lead to non-determinism (race condition on external variables)
+    // => Non-associative (grouping of) operations lead to non-determinism => temporal order of operations should not matter
+    // => Non-commutative operations are acceptable
+    //The “out of order” semantics of parallel collections only means that
+    // the operation will be executed out of order (in a temporal sense.
+    // That is, non-sequentially), it does not mean that the result will
+    // be re-“combined” out of order (in a spatial sense). On the contrary,
+    // results will generally always be reassembled in order– that is, a
+    // parallel collection broken into partitions A, B, C, in that order,
+    // will be reassembled once again in the order A, B, C.
+    /*
+      1 - 2 -3 -4
+
+      1-2    3 -4  |  1 -2 -3    -4
+
+      -1     -1    |  -4         -4
+
+      -2          !=  -8
+    */
+
+    val list1 = (1 to 1000).toList
+
+    println("Side effect not ok for par collections: ")
+    var sum = 0
+    list1.par.foreach(sum += _)
+    println("list1.par.foreach(sum += _): " + sum)
+    sum = 0
+    list1.par.foreach(sum += _)
+    println("list1.par.foreach(sum += _): " + sum)
+
+    println("Non associative not ok for par collections: ")
+    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
+    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
+    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
+    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
   }
 
   def chapter_23_for_expressions_revisited(args: Array[String]): Unit = {
@@ -124,7 +192,7 @@ object HelloWorld17 {
           "Joy, Bill", "Steele, Guy", "Bracha, Gilad"
         )
       )
-
+/*
     //All books whose author’s last name is "Gosling"
     for (b <- books; a <- b.authors
          if a startsWith "Gosling")
@@ -147,7 +215,7 @@ object HelloWorld17 {
          a1 <- b1.authors; a2 <- b2.authors if a1 == a2)
       yield a1
     )
-
+*/
     //=> 23.4 Translation of for expressions
     //Every for expression can be expressed in terms of the three higher-order functions map, flatMap, and withFilter.
     // This section describes the translation scheme, which is also used by the Scala compiler:
@@ -156,7 +224,7 @@ object HelloWorld17 {
     //  2) for (x <- expr1 if expr2) yield expr3; <=> expr1 withFilter (x => expr2) map (x => expr3)
     //  3) for (x <- expr1 if expr2; seq) yield expr3 <=> for (x <- expr1 withFilter expr2; seq) yield expr3
     //  4) for (x <- expr1; y <- expr2; seq) yield expr3 <=> expr1.flatMap(x => for (y <- expr2; seq) yield expr3)
-
+/*
     //All authors that have written at least two books in the database
     //Apply rule 4)
     books.flatMap( b1 =>
@@ -178,7 +246,7 @@ object HelloWorld17 {
       books.withFilter( b2 => b1 != b2).flatMap( b2 =>
         b1.authors.flatMap( a1 =>
           b2.authors.withFilter( a2 => a1 == a2).map( _ => a1).head)))
-
+*/
     //==> Translating patterns in generators
     //The translation scheme becomes more complicated if the left hand side of generator is a pattern, pat,
     // other than a simple variable
@@ -203,6 +271,49 @@ object HelloWorld17 {
         yield x * y                                                    */
 
     //==> Translating for loops
+    //For loops that simply perform a side effect without returning anything
+    // 8) expr 1 foreach ( x => body) <=> expr 1 foreach ( x => body)
+    // 9) for ( x <- expr 1 ; if expr 2 ; y <- expr 3 ) body <=> expr 1 withFilter ( x => expr 2 ) foreach ( x => expr 3 foreach ( y => body))
+    val xss = (1::2::3::Nil)::
+              (1::1::1::Nil)::
+              Nil
+    var sum = 0
+    for (xs <- xss; x <- xs) sum += x
+    // <=>
+    sum = 0
+    xss.foreach(xs =>
+      xs.foreach( x =>
+        sum +=x ))
+    println("Matrix sum" + sum)
+
+    //=> 23.5 Going the other way
+    //Every application of a map, flatMap, or filter can be represented as a for expression.
+    object Demo {
+      def map[A, B](xs: List[A], f: A => B): List[B] =
+        for (x <- xs) yield f(x)
+      def flatMap[A, B](xs: List[A], f: A => List[B]): List[B] =
+        for (x <- xs; y <- f(x)) yield y
+      def filter[A](xs: List[A], p: A => Boolean): List[A] =
+        for (x <- xs if p(x)) yield x
+    }
+    //=> 23.6 Generalizing for
+    //For works also on ranges, iterators, streams, and all implementations
+    // of sets. It’s also perfectly possible for your own data types to support for ex-
+    // pressions by defining the necessary methods. To support the full range of for
+    // expressions and for loops, you need to define map , flatMap , withFilter ,
+    // and foreach as methods of your data type.
+    //Scala defines no typing rules for
+    // the for expressions themselves, and does not require that methods map ,
+    // flatMap , withFilter , or foreach to have any particular type signatures.
+    //Nevertheless, there is a typical setup that captures the most common
+    // intention of the higher order methods to which for expressions translate:
+    abstract class CustomCollection[A] {
+      def Map[B](f: A => B): CustomCollection[B]
+      def flatMap[B](f: A => CustomCollection[B]): CustomCollection[B]
+      def withFilter(f: A => Boolean): CustomCollection[A]
+      def forEach(f : A => Unit): Unit
+    }
+
   }
 
   def chapter_22_implementing_lists(args: Array[String]): Unit = {
