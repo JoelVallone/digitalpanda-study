@@ -1,12 +1,15 @@
 package com.digitalpanda.scala.playground
 
+import java.awt.Color
 import java.awt.event.{ActionEvent, ActionListener}
 import java.io.PrintWriter
 import java.util.Date
+import java.util.concurrent.ConcurrentHashMap
 
 import com.digitalpanda.scala.playground.circuit.CircuitSimulation
 import javax.swing.JButton
 
+import scala.collection.{LinearSeq, SortedSet, mutable}
 import scala.collection.immutable.{Queue, TreeMap, TreeSet}
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
@@ -88,16 +91,381 @@ object HelloWorld17 {
     println("Side effect not ok for par collections: ")
     var sum = 0
     list1.par.foreach(sum += _)
-    println("list1.par.foreach(sum += _): " + sum)
+    println("list1.par.foreach(sum += _):> " + sum)
     sum = 0
     list1.par.foreach(sum += _)
-    println("list1.par.foreach(sum += _): " + sum)
+    println("list1.par.foreach(sum += _):> " + sum)
 
     println("Non associative not ok for par collections: ")
-    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
-    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
-    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
-    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
+    println("list.par.reduce(_-_):> " + list1.par.reduce(_-_))
+    println("list.par.reduce(_-_):> " + list1.par.reduce(_-_))
+    println("list.par.reduce(_-_):> " + list1.par.reduce(_-_))
+    println("list.par.reduce(_-_):>"  + list1.par.reduce(_-_))
+
+    //=> 24.1 Mutable and immutable collections
+    //A collection in package scala.collection.mutable is known to have
+    // some operations that change the collection in place.
+    //A collection in package scala.collection.immutable is guaranteed
+    // to be immutable for everyone. Such a collection will never change after
+    // it is created.
+    //A collection in package scala.collection can be either mutable or im-
+    // mutable. By default, Scala always picks immutable collections
+    //The last package in the collection hierarchy is collection.generic .
+    // This package contains building blocks for implementing collections. Typ-
+    // ically, collection classes defer the implementations of some of their opera-
+    // tions to classes in generic
+
+    //=> 24.2 Collections consistency
+    //-> Every kind of collection can be created by the same uniform syntax, writing the
+    // collection class name followed by its elements:
+    Traversable(1, 2, 3)
+    Iterable("x", "y", "z")
+    Map("x" -> 24, "y" -> 25, "z" -> 26)
+    Set(Color.RED, Color.GREEN, Color.BLUE)
+    SortedSet("hello", "world")
+    mutable.Buffer(1, 2, 3)
+    IndexedSeq(1.0, 2.0)
+    LinearSeq(40L, 41L, 42L)
+    /*
+    Traversable
+      Iterable
+        Seq
+          IndexedSeq
+            Vector
+            ResizableArray
+            GenericArray
+          LinearSeq
+            MutableList
+            List
+            Stream
+          Buffer
+            ListBuffer
+            ArrayBuffer
+        Set
+          SortedSet
+            TreeSet
+          HashSet (mutable)
+          LinkedHashSet
+          HashSet (immutable)
+          BitSet
+          EmptySet, Set1, Set2, Set3, Set4
+        Map
+          SortedMap
+            TreeMap
+          HashMap (mutable)
+          LinkedHashMap (mutable)
+          HashMap (immutable)
+          EmptyMap, Map1, Map2, Map3, Map4
+
+          Figure 24.1
+     */
+    //-> The same principle also applies for specific collection implementations
+    // The toString methods for all collections produce output written as above,
+    // with a type name followed by the elements of the collection in parentheses.
+    // All collections support the API provided by Traversable , but their meth-
+    // ods all return their own class rather than the root class Traversable .
+    //-> Equality is also organized uniformly for all collection classes;
+    //-> Most of the classes in Figure 24.1 exist in three variants: root, mutable,
+    // and immutable. The only exception is the Buffer trait, which only exists as
+    // a mutable collection.
+
+    //=> 24.3 Trait Traversable
+    //At the top of the collection hierarchy is trait Traversable.
+    //-> Its only abstract operation is foreach:
+    //  def foreach[U](f: Elem => U)
+    //  The invocation of f is done for its side effect only; in fact any
+    //  function result of f is discarded by foreach.
+    //-> Traversable also defines many concrete methods, which are all listed
+    //    in Table 24.1 on page 539.
+    //--> ADDITION ++ : appends two traversables together, or appends all ele-
+    //    ments of an iterator to a traversable.
+    //--> MAP operations map , flatMap , and collect , which produce a new collec-
+    //    tion by applying some function to collection elements.
+    //--> CONVERSIONS toIndexedSeq , toIterable , toStream , toArray , toList ,
+    //    toSeq , toSet , and toMap , which turn a Traversable collection into a
+    //    more specific collection.
+    //--> COPYING operations copyToBuffer and copyToArray . As their names im-
+    //    ply, these copy collection elements to a buffer or array, respectively.
+    //--> SIZE operations isEmpty , nonEmpty , size , and hasDefiniteSize . Col-
+    //    lections that are traversable can be finite or infinite.
+    //--> ELEMENT RETRIEVAL operations head , last , headOption , lastOption , and
+    //    find .
+    //    A collection is ordered if it always yields its elements in the same order.
+    //--> SUBCOLLECTION RETRIEVAL operations takeWhile , tail , init , slice , take ,
+    //    drop , filter , dropWhile , filterNot , and withFilter . These all
+    //    return some subcollection identified by an index range or a predicate.
+    //--> SUBDIVISION OPERATIONS  splitAt , span , partition , and groupBy , which
+    //    split the elements of this collection into several subcollections.
+    //--> ELEMENT TESTS exists , forall , and count , which test collection elements
+    //    with a given predicate.
+    //--> FOLDS foldLeft , foldRight , /: , :\ , reduceLeft , reduceRight , which
+    //    apply a binary operation to successive elements.
+    //--> SPECIFIC FOLDS sum , product , min , and max , which work on collections of
+    //    specific types (numeric or comparable).
+    //--> STRING OPERATIONS mkString , addString , and stringPrefix , which pro-
+    //    vide alternative ways of converting a collection to a string.
+    //--> VIEW operations consisting of two overloaded variants of the view method.
+    //    A view is a collection that’s evaluated lazily.
+
+    //=> 24.4 Trait Iterable
+    //All methods in this trait are defined in terms of an an abstract method,
+    // iterator , which yields the collection’s elements one by one.
+    // The foreach method from trait Traversable is implemented in Iterable in
+    // terms of iterator:
+      class Elem;
+      def foreach[U](f: Elem => U): Unit = {
+        //val it = iterator
+        //while (it.hasNext) f(it.next())
+      }
+    //Quite a few subclasses of Iterable override this standard implementation
+    // of foreach in Iterable , because they can provide a more efficient imple-
+    // mentation. Remember that foreach is the basis of the implementation of all
+    // operations in Traversable , so ITS PERFORMANCE MATTERS !
+    //Two more methods exist in Iterable that return iterators: grouped and
+    // sliding. The grouped method chunks its elements into increments,
+    // whereas sliding yields a sliding window over the elements:
+    val xs = List(1, 2, 3, 4, 5)
+    val git = xs grouped 3
+    println("\ngit = xs grouped 3:> " + git)
+    println("git.next():> " + git.next())
+    println("git.next():> " + git.next())
+
+    val sit = xs sliding 3
+    println("\nsit = xs sliding 3:> " + sit)
+    println("sit.next():> " + sit.next())
+    println("sit.next():> " + sit.next())
+
+    //Trait Iterable also adds some other methods to Traversable that can be
+    // implemented EFFICIENTLY only if an iterator is available:
+    //-> Iterators: iterator, grouped, sliding
+    //-> Sub-collections: takeRight, takeLeft
+    //-> Zippers: zip, zipAll, zipWithIndex
+    //-> Comparision: sameElements
+    //One reason for having Traversable is that sometimes it is
+    // easier or more efficient to provide an implementation of foreach than to
+    // provide an implementation of iterator.
+
+    //In the inheritance hierarchy below Iterable you find three traits: Seq , Set ,
+    // and Map . A common aspect of these three traits is that they all implement the
+    // PartialFunction trait with its apply and isDefinedAt methods.
+    //-> For sequences, apply is positional indexing, where elements are always
+    //   numbered from 0 . That is, Seq(1, 2, 3)(1) == 2 .
+    //-> For sets, apply is a
+    //   membership test. For instance, Set('a', 'b', 'c')('b') == true whereas
+    //   Set()('a') == false.
+    //-> For maps, apply is a selection. For instance, Map('a' -> 1, 'b' -> 10, 'c' -> 100)('b') == 10 .
+    println("Seq(4, 25, 42)(1) :> "
+      + Seq(1, 25, 42)(1))
+    println("Set('a', 'b', 'c')('b') :> "
+      + Set('a', 'b', 'c')('b'))
+    println("Map('a' -> 1, 'b' -> 10, 'c' -> 100)('b') :> "
+      + Map('a' -> 1, 'b' -> 10, 'c' -> 100)('b'))
+
+    //=> 24.5 The sequence traits Seq , IndexedSeq , and LinearSeq
+    //The Seq trait represents sequences. A sequence is a kind of iterable that has
+    // a length and whose elements have fixed index positions, starting from 0:
+    //-> INDEXING AND LENGTH operations apply , isDefinedAt , length , indices ,
+    //    and lengthCompare
+    //-> INDEX SEARCH operations indexOf , lastIndexOf , indexOfSlice , lastIn -
+    //   dexOfSlice , indexWhere , lastIndexWhere , segmentLength , and
+    //   prefixLength , which return the index of an element equal to a given
+    //   value or matching some predicate.
+    //-> ADDITION operations +: , :+ , and padTo , which return new sequences ob-
+    //   tained by adding elements at the front or the end of a sequence.
+    //-> UPDATE operations updated and patch , which return a new sequence ob-
+    //   tained by replacing some elements of the original sequence
+    //-> SORTING operations sorted , sortWith , and sortBy , which sort sequence
+    //   elements according to various criteria.
+    //-> REVERSAL operations reverse , reverseIterator , and reverseMap , which
+    //   yield or process sequence elements in reverse order, from last to first
+    //-> COMPARISION operations startsWith , endsWith , contains , corresponds ,
+    //   and containsSlice , which relate two sequences or search an element
+    //   in a sequence.
+    //-> MULTISET operations intersect , diff , union , and distinct , which per-
+    //   form set-like operations on the elements of two sequences or remove
+    //   duplicates. If multiple time the same value, return as many same
+    //   values as there are in both sequences.
+    //Syntax like seq(idx) = elem is just a shorthand for seq.update(idx, elem)
+    //Each Seq trait has two subtraits, LinearSeq and IndexedSeq . These do
+    //not add any new operations, but each offers different performance charac-
+    //teristics.
+    // - A linear sequence has efficient head and tail operations.
+    // - An indexed sequence has efficient apply , length , and (if mutable) update zoohoperations
+    //Two frequently used indexed sequences are Array and ArrayBuffer . The Vector
+    //class provides an interesting compromise between indexed and linear access.
+    //It has both effectively constant time indexing overhead and constant time lin-
+    //ear access overhead. Because of this, vectors are a good foundation for mixed
+    //access patterns where both indexed and linear accesses are used.
+
+    //BUFFERS
+    //An important sub-category of mutable sequences is buffers. Buffers allow
+    // not only updates of existing elements but also element insertions, element
+    // removals, and efficient additions of new elements at the end of the buffer.
+    //The principal new methods supported by a buffer are += and ++= , for element
+    // addition at the end, +=: and ++=: for addition at the front, insert and
+    // insertAll for element insertions, as well as remove and -= for element
+    // removal.
+
+    //=> 24.6 Sets
+    //Operation categories:
+    //-> TESTS contains , apply , and subsetOf.
+    //-> ADDITIONS + and ++ , which add one or more elements to a set, yielding a new
+    //   set as a result.
+    //-> REMOVALS - and -- , which remove one or more elements from a set, yielding
+    //   a new set.
+    //-> SET OPERATIONS for union, intersection, and set difference.
+    //   The alphabetic versions are intersect , union , and diff , whereas
+    //   the symbolic versions are & , | , and & ~ .
+    // Mutable sets have methods that add, remove, or update elements
+    //The choice of the method names += and -= means that very similar code
+    // can work with either mutable or immutable sets.
+    var s = Set(1, 2, 3);s += 4; s -= 2
+    println("var s = Set(1, 2, 3);s += 4; s -= 2 :> " + s)
+    val sMut = mutable.Set(1, 2, 3);sMut += 4; sMut -= 2
+    println("val sMut = mutable.Set(1, 2, 3);sMut += 4; sMut -= 2:> " + sMut)
+    //Comparing the two interactions shows an important principle. You often
+    // can replace a mutable collection stored in a val by an immutable collection
+    // stored in a var , and vice versa.
+    //The current default implementation of a mutable set uses a hash table
+    // to store the set’s elements.
+    //Beyond four elements, immutable sets are implemented as hash tries. 2
+
+    //Sorted sets
+    //Elements are traversed in sorted order.
+    //The default representation of a SortedSet is an ordered binary tree
+    // maintaining the invariant that all elements in the left subtree of a
+    // node are smaller than all elements in the right subtree.
+    // Scala’s class immutable.TreeSet uses a red-black tree
+    // implementation to maintain this ordering invariant, and at the same time keep
+    // the tree balanced.
+    //Sorted sets also support ranges of elements.
+    val set = TreeSet.empty[String]
+    val numbers = set + ("one", "two", "three", "four")
+    println("numbers range (\"one\", \"two\") :>" + (numbers range ("one", "two")))
+    println("numbers from \"three\" :>" + (numbers from "three"))
+
+    //Bit sets
+    //Bit sets are sets of non-negative integer elements that are implemented in one
+    // or more words of packed bits. It follows that the size of a bit set
+    // depends on the largest integer that’s stored
+    // in it.
+
+    //=> 24.7 Maps
+    //Scala’s Predef class offers an implicit conversion that lets you write key
+    // -> value as an alternate syntax for the pair (key, value).
+    //The fundamental operations on maps are similar to those of sets.
+    //Map operations fall into the following categories:
+    //-> LOOKUPS apply , get , getOrElse , contains , and isDefinedAt
+    //   Maps also define an apply method that returns the value associated
+    //   with a given key directly, without wrapping it in an Option .
+    //   If the key is not defined in the map, an exception is raised
+    //-> ADDITIONS and UPDATES + , ++ , and updated , which let you add new bindings
+    //   to a map or change existing bindings.
+    //-> REMOVALS - and -- , which remove bindings from a map.
+    //-> SUBCOLLECTION producers keys , keySet , keysIterator , valuesIterator ,
+    //   and values
+    //-> TRANSFORMATIONS filterKeys and mapValues , which produce a new map
+    //   by filtering and transforming bindings of an existing map.
+    //The getOrElseUpdate is useful for accessing mutable maps that act as caches
+    // In the case where, update is expensive as the second argument to g
+    // etOrElseUpdate is “by-name,”
+
+    //=> 24.8 Synchronized sets and maps
+    //If you needed a thread-safe map, you could mix the SynchronizedMap
+    // trait into whatever particular map implementation you desired:
+    object MapMaker {
+      def makeMap: mutable.HashMap[String, String] with mutable.SynchronizedMap[String, String] {
+        def default(key: String): String
+      } = {
+        new mutable.HashMap[String, String] with
+          mutable.SynchronizedMap[String, String] {
+          override def default(key: String) =
+            "Why do you want to know?"
+        }
+      }
+    }
+    //<=>
+    new ConcurrentHashMap[String,String]()
+    //Alternatively, you may prefer to use unsynchronized collections
+    //with Scala actors. Actors will be covered in detail in Chapter 32.
+
+
+    //=> 24.9 Concrete IMMUTABLE collection classes
+    //Update operations require deep copy of several elements pointing towards the updated field
+    // As a result cost is multiplied by a "big" constant when compared to their mutable counterpart....
+
+    //LISTS: Lists are finite immutable sequences. They provide constant-time access to
+    // their first element as well as the rest of the list, and they have a constant-time
+    // cons operation for adding a new element to the front of the list
+    // Accessing or modifying elements later in the list takes time linear in
+    // the depth into the list.
+
+    //STREAMS: A stream is like a list except that its elements are computed lazily. Because
+    // of this, a stream can be infinitely long. Only those elements requested will
+    // be computed. Otherwise, streams have the same performance characteristics
+    // as lists.
+      val str = 1 #:: 2 #:: 3 #:: Stream.empty
+      def fibFrom(a: Int, b: Int): Stream[Int] =
+        a #:: fibFrom(b, a + b)
+        // <- Since it uses #:: , though, the right-hand side is not evaluated
+        //     until it is requested!
+        val fibs = fibFrom(1, 1).take(7)
+
+    //VECTORS: (Constant time operations can be up to 32 * more expensive than the ones from arrays)
+    // Access to any elements of a vector take only “effectively constant time,
+    // ” as defined below. It’s a larger constant than for access to the head of
+    // a list or for reading an element of an array, but it’s a constant nonetheless.
+    //Vectors are represented as broad, shallow trees. Every tree node contains
+    // up to 32 elements of the vector or contains up to 32 other tree nodes
+    //Vectors are immutable, so you cannot change an element of a vector in
+    // place. However, with the updated method you can create a new vector that
+    // differs from a given vector only in a single element.
+    //Updating an element in the middle of a vector can be done by
+    // copying the node that contains the element, and every node that points to it,
+    // starting from the root of the tree. This means that a functional update creates
+    // between one and five nodes that each contain up to 32 elements or subtrees.
+    //They are currently the default implementation of immutable indexed sequences.
+
+    //IMMUTABLE STACKS: You push an element onto a stack with push ,
+    // pop an element with pop , and peek at the top of the stack without
+    // removing it with top . All of these operations are constant time. (same as list)
+
+    //IMMUTABLE QUEUE: ...
+
+    //RANGES: A range is an ordered sequence of integers that are equally spaced apart.
+    println("5 to 14 by 3 :> " + (5 to 14 by 3))
+    println("1 until 3 :> " + (1 until 3))
+    //Ranges are represented in constant space.
+    //Most operations on ranges are extremely fast.
+
+    //HASH TRIES: Their representation is similar to vectors in that they are also trees
+    // where every node has 32 elements or 32 subtrees, but selection is done based
+    // on a hash code. For instance, to find a given key in a map, you use the lowest
+    // five bits of the hash code of the key to select the first subtree, the next five
+    // bits the next subtree, and so on. Selection stops once all elements stored in a
+    // node have hash codes that differ from each other in the bits that are selected
+    // so far. https://en.wikipedia.org/wiki/Hash_array_mapped_trie
+    //They underlie Scala’s default implementations of immutable maps and sets.
+
+    //RED-BLACK TREES: Red-black trees are a form of balanced binary trees
+    // Like any balanced binary tree, operations on them reliably complete in
+    // time logarithmic to the size of the tree.
+    //Red-black trees are also the standard implementation of SortedSet in Scala,
+    // because they provide an efficient iterator that returns all elements of the set
+    // in sorted order.
+
+    //IMMUTABLE BIT SETS
+    //A bit set represents a collection of small integers as the bits of a
+    // larger integer. Internally, bit sets use an array of 64-bit Long s.
+    //Testing for inclusion takes constant time. Adding an item to the set
+    // takes time proportional to the number of Long s in the bit set’s array.
+
+    //LIST MAPS: /A list map represents a map as a linked list of key-value pairs.
+    // Practical only if the map is for some reason constructed in such a way that
+    // the first elements in the list are selected much more often than the other elements.
+
+    //=> 24.10 Concrete mutable collection classes
+    //ARRAY BUFFERS:
   }
 
   def chapter_23_for_expressions_revisited(args: Array[String]): Unit = {
