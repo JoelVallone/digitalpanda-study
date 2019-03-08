@@ -1,12 +1,16 @@
 package com.digitalpanda.scala.playground
 
+import java.awt.Color
 import java.awt.event.{ActionEvent, ActionListener}
 import java.io.PrintWriter
 import java.util.Date
+import java.util.concurrent.ConcurrentHashMap
 
+import com.digitalpanda.scala.playground.HelloWorld.chapterSeparator
 import com.digitalpanda.scala.playground.circuit.CircuitSimulation
 import javax.swing.JButton
 
+import scala.collection.{LinearSeq, SortedSet, mutable}
 import scala.collection.immutable.{Queue, TreeMap, TreeSet}
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
@@ -14,15 +18,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 object HelloWorld17 {
 
 
-  def chapterSeparator(chapter: Array[String] => Unit, chapterNumber: Int)(args: Array[String]): Unit = {
-    println("===> CHAPTER " + chapterNumber + " <===")
-    chapter(args)
-    println()
-    println()
-  }
-
   def main(args: Array[String]): Unit = {
-
     chapterSeparator(chapter_17_collections,17) { println("plop"); args }
     chapterSeparator(chapter_18_stateful_objects,18){ args }
     chapterSeparator(chapter_19_type_parametrization,19)( args )
@@ -30,74 +26,6 @@ object HelloWorld17 {
     chapterSeparator(chapter_21_implicit_conversions_and_parameters,21)( args )
     chapterSeparator(chapter_22_implementing_lists,22)( args )
     chapterSeparator(chapter_23_for_expressions_revisited,23)( args )
-    chapterSeparator(chapter_24_the_scala_collections_api,24)( args )
-  }
-
-  def chapter_24_the_scala_collections_api(args: Array[String]): Unit = {
-  /*
-  Easy to use: A small vocabulary of twenty to fifty methods is enough to
-      solve most collection problems in a couple of operations.
-  Concise: You can achieve with a single word what used to take one or
-      several loops.
-  Safe: The statically typed and functional nature of Scala’s collections means
-      that the overwhelming majority of errors you might make are caught at
-      compile-time.
-  Fast: Collection operations are tuned and optimized in the libraries.
-      What’s more, collections are currently being adapted to parallel
-      execution on multi-cores: https://docs.scala-lang.org/overviews/parallel-collections/overview.html
-  Universal: Collections provide the same operations on any type where it
-      makes sense to do so.
-   */
-    //=> 24.0 Parallel collections
-    //As a general heuristic, speed-ups tend to be noticeable when the size of
-    // the collection is large, typically several thousand elements.
-    val list = (1 to 10000).toList
-    list.map(_ + 42)
-    //Parallel version then again converted to sequential version
-    list.par.map(_ + 42).seq
-    //Collections that are inherently sequential (in the sense that the elements
-    // must be accessed one after the other), like lists, queues, and streams,
-    // are converted to their parallel counterparts by copying the elements into
-    // a similar parallel collection.
-    //Conceptually, Scala’s parallel collections framework parallelizes an
-    // operation on a parallel collection by recursively “splitting” a given
-    // collection, applying an operation on each partition of the collection in
-    // parallel, and re-“combining” all of the results that were completed in parallel.
-    // => Side-effecting operations can lead to non-determinism (race condition on external variables)
-    // => Non-associative (grouping of) operations lead to non-determinism => temporal order of operations should not matter
-    // => Non-commutative operations are acceptable
-    //The “out of order” semantics of parallel collections only means that
-    // the operation will be executed out of order (in a temporal sense.
-    // That is, non-sequentially), it does not mean that the result will
-    // be re-“combined” out of order (in a spatial sense). On the contrary,
-    // results will generally always be reassembled in order– that is, a
-    // parallel collection broken into partitions A, B, C, in that order,
-    // will be reassembled once again in the order A, B, C.
-    /*
-      1 - 2 - 3 - 4
-
-      1-2    3 - 4 |  1 -2 -3    -4
-
-      -1     -1    |  -4         -4
-
-      -2          !=  -8
-    */
-
-    val list1 = (1 to 1000).toList
-
-    println("Side effect not ok for par collections: ")
-    var sum = 0
-    list1.par.foreach(sum += _)
-    println("list1.par.foreach(sum += _): " + sum)
-    sum = 0
-    list1.par.foreach(sum += _)
-    println("list1.par.foreach(sum += _): " + sum)
-
-    println("Non associative not ok for par collections: ")
-    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
-    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
-    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
-    println("list.par.reduce(_-_): " + (list1.par.reduce(_-_)))
   }
 
   def chapter_23_for_expressions_revisited(args: Array[String]): Unit = {
