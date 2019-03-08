@@ -74,9 +74,9 @@ object HelloWorld17 {
     // parallel collection broken into partitions A, B, C, in that order,
     // will be reassembled once again in the order A, B, C.
     /*
-      1 - 2 -3 -4
+      1 - 2 - 3 - 4
 
-      1-2    3 -4  |  1 -2 -3    -4
+      1-2    3 - 4 |  1 -2 -3    -4
 
       -1     -1    |  -4         -4
 
