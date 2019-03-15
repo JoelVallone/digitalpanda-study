@@ -40,6 +40,17 @@ class BloxorzSuite extends FunSuite {
       |------ooo-""".stripMargin
 
     val optsolution = List(Right, Right, Down, Right, Right, Right, Down)
+    /*
+          ==
+
+       0123456789
+     0 ooo-------
+     1|oS112o----
+     2|oooo3456o-
+     3|-ooo3456oo
+     4|-----ooToo
+     5|------ooo-
+     */
   }
 
 
@@ -61,6 +72,36 @@ class BloxorzSuite extends FunSuite {
 	test("findChar level 1") {
     new Level1 {
       assert(startPos == Pos(1,1))
+    }
+  }
+
+  test("neighborsWithHistory") {
+    new Level1 {
+      assert(
+          neighborsWithHistory(Block(Pos(1,1),Pos(1,1)), List(Left,Up)).toSet
+        ==
+          Set(
+            (Block(Pos(1,2),Pos(1,3)), List(Right,Left,Up)),
+            (Block(Pos(2,1),Pos(3,1)), List(Down,Left,Up))
+          )
+      )
+    }
+  }
+
+  test("newNeighborsOnly") {
+    new Level1 {
+      assert(
+        newNeighborsOnly(
+          Set(
+            (Block(Pos(1,2),Pos(1,3)), List(Right,Left,Up)),
+            (Block(Pos(2,1),Pos(3,1)), List(Down,Left,Up))
+          ).toStream,
+          Set(Block(Pos(1,2),Pos(1,3)), Block(Pos(1,1),Pos(1,1))))
+        ==
+          Set(
+            (Block(Pos(2,1),Pos(3,1)), List(Down,Left,Up))
+          ).toStream
+        )
     }
   }
 
