@@ -87,7 +87,7 @@ abstract class QuickCheckHeap extends Properties("Heap") with IntHeap {
         }
       }
 
-  property("break3:  meld max heap with min heap and delete min should only hold max") =
+  property("break3: link drops one of the trees instead of ordering the pair") =
     forAll { (a : A, b: A) =>
         val h1 = insert(min(a,b), empty)
         val h2 = insert(max(a,b), empty)
