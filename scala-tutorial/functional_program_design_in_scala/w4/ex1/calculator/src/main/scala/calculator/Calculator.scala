@@ -9,20 +9,28 @@ final case class Times(a: Expr, b: Expr) extends Expr
 final case class Divide(a: Expr, b: Expr) extends Expr
 
 object Calculator {
+
   def computeValues(
       namedExpressions: Map[String, Signal[Expr]]): Map[String, Signal[Double]] =
     namedExpressions.map{
       case (name, expr) => (name, Signal{ eval(expr(), namedExpressions)})}
 
-  // TODO: Detect Ref cycles
-  def eval(expr: Expr, references: Map[String, Signal[Expr]]): Double =  expr match {
-    case Literal(v)   => v
-    case Ref(name)    => eval(getReferenceExpr(name, references), references)
-    case Plus(a, b)   => eval(a, references) + eval(b, references)
-    case Minus(a, b)  => eval(a, references) - eval(b, references)
-    case Times(a, b)  => eval(a, references) * eval(b, references)
-    case Divide(a, b) => eval(a, references) / eval(b, references)
-    case _  => Double.NaN
+  def eval(expr: Expr, references: Map[String, Signal[Expr]]): Double = {
+    def evalCycle(expr: Expr, references: Map[String, Signal[Expr]], touched: Set[String]): Double =
+      expr match {
+        case Literal(v) => v
+        case Plus(a, b) => evalCycle(a, references, touched) + evalCycle(b, references, touched)
+        case Minus(a, b) => evalCycle(a, references, touched) - evalCycle(b, references, touched)
+        case Times(a, b) => evalCycle(a, references, touched) * evalCycle(b, references, touched)
+        case Divide(a, b) => evalCycle(a, references, touched) / evalCycle(b, references, touched)
+        case Ref(name) =>
+          if (touched(name))
+            Double.NaN
+          else
+            evalCycle(getReferenceExpr(name, references), references, touched + name)
+        case _ => Double.NaN
+      }
+    evalCycle(expr, references, Set())
   }
 
   /** Get the Expr for a referenced variables.
