@@ -7,12 +7,127 @@ import com.digitalpanda.scala.playground.HelloWorld.chapterSeparator
 
 import scala.collection.immutable.TreeSet
 import scala.collection.{LinearSeq, SortedSet, mutable}
+import scala.concurrent.{Await, Future, Promise}
 import scala.reflect.ClassTag
+import scala.util.{Failure, Success}
 
 object HelloWorld24 {
 
   def main(args: Array[String]): Unit = {
     chapterSeparator(chapter_24_the_scala_collections_api,24)( args )
+    chapterSeparator(chapter_32_futures_and_concurrency,32)( args )
+  }
+
+  def chapter_32_futures_and_concurrency(args: Array[String]): Unit = {
+    //=> 32.3 Working with Futures
+    //In general, do not use Await in productive code to not kill the advantage of asynchronous multi traded processing
+    //Once un future space, stay in future space!
+
+    import scala.concurrent.ExecutionContext.Implicits.global
+    import  scala.concurrent.duration._
+
+    //==> Future creation
+    // Future creation, division and addition may be done by three different threads !!!
+    val fut1 = Future { Thread.sleep(200); 42 / 0 }
+      .fallbackTo(Future.successful(0))
+      .map(_ + 1)
+    val fut2 = Future { Thread.sleep(300); 42 - 1 }
+
+    //==> For expression
+    //Futures must be created outside the for expression to allow parallel
+    // execution as the for expression will serialize the calls through a
+    // sequence of transforms: map, flatMap, and filter.
+    val fut12 = for {
+      x <- fut1
+      y <- fut2
+    } yield x + y
+
+    println("Before Await = " + System.currentTimeMillis())
+    Await.result(fut12, Duration(1, SECONDS))
+    println("After Await = " + System.currentTimeMillis())
+    println("Future call result: " + fut12.value.get)
+
+    //=> Promise
+    val pro = Promise[Int]
+    //Create a future controlled by the Promise
+    val fut = pro.future
+    pro.success(33)
+    println("Future derived from a promise: " + fut.value.get)
+
+    //==> Collect, Filter
+    val fut0 = Future {42}
+    val valid = fut0.filter(_ > 0)
+    val invalid = fut0.filter(_ < 0)
+    val valid2 = fut0.collect{ case res if res > 0 => res + 1} // filter and map
+    Await.result(valid2, Duration(1, SECONDS))
+    println("Future {42}.filter(_ > 0): " + valid.value)
+    println("Future {42}.filter(_ < 0).failed: " + invalid.failed) // .failed has succeeded as parent future has failed
+    println("fut0.collect{ case x if x > 0 => x + 1}: " + valid2.value)
+
+    //==> Recover
+    val failedFuture = Future {42 / 0}
+    val successfulFuture = Future {42 / 1}
+    val recoveredFromFailed = failedFuture recover { case _ => -1}
+    Await.result(recoveredFromFailed, Duration(1, SECONDS))
+    println("failedFuture recover { case _ => -1}: " + recoveredFromFailed.value)
+    println("successfulFuture recover { case _ => -1}: " + successfulFuture) //Original result (42) passes through as no need for recovery
+
+
+    //==> Recover
+    //Transform future result by handling both success and failure of the Try result
+    val transformed = Future {42}.transform(
+      x => x * -1,
+      ex => new Exception("see cause", ex) // Can only map to a Throwable
+    )
+    Await.result(transformed, Duration(1, SECONDS))
+    println("Transformed and accept fate: " + transformed)
+
+    //==> Transform future result and mutate its Success/Failure result
+    val transformed2 = Future {42 / 0}.transform {
+      case Success(value) => Success(value + 1)
+      case Failure(_) => Success(-1) // Can choose to continue failure or transform to success !
+    }
+    Await.result(transformed2, Duration(1, SECONDS))
+    println("Transformed to never fail: " + transformed2)
+
+    //==> Combining futures
+    val futOfPair = fut1 zip fut2
+    println("(fut1 zip fut2):" + futOfPair)
+    println("(failedFuture zip fut2):" + (fut2 zip failedFuture))
+    val listOfFutures = List(fut1, fut2)
+    val folded = Future.foldLeft(listOfFutures)(0){ (acc, num) => acc + num}
+    println("Future.foldLeft(List(fut1,fut1))(0){(acc,num) => acc + num}:" + folded)
+    val futureWithList = Future.sequence(listOfFutures)
+    println(" Future.sequence(List(Future.success(1), Future.success(42))): " + futureWithList)
+
+    //==> Performing side effects, forEach, onComplete, andThen
+    fut1.foreach(println) // executes only if successful
+    for (res <- fut1) println(res) // equivalent to previous
+
+    fut1 onComplete { // No ordering guarantee when multiple on complete registered
+      case Success(x) => println(x)
+      case Failure(ex) => println(ex)
+    }
+
+    val fut1Then = fut1 andThen  { // Ordering guarantee on returned future
+      case Success(x) => println("First " + x)
+      case Failure(ex) => println(ex)
+    }
+    fut1Then.foreach( x => println("Second " + x)) // callers to fut1Then will not be affected by "fut1 andThen" Failure
+
+    //==> Flatten and ZipWith
+    println("Future.successful(Future.successful(Future.successful(42))).flatten: "
+      + Future.successful(Future.successful(Future.successful(42))).flatten)
+
+    val mappedZip = fut1.zipWith(fut2) { case (res1, res2) => s"a string with '$res1' & '$res2'"}
+    Await.result(mappedZip, Duration(1, SECONDS))
+    println("mappedZip: " + mappedZip)
+
+
+    //=> 32.4
+    //Testing with Futures
+    // Check TestWithFutures.scala
+
   }
 
   def chapter_24_the_scala_collections_api(args: Array[String]): Unit = {
