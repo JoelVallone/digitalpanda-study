@@ -23,14 +23,8 @@ object Lists {
    * @param xs A list of natural numbers
    * @return The sum of all elements in `xs`
    */
-    def sum(xs: List[Int]): Int = {
-      def partSum(ys: List[Int], carry: Int) = 
-      match xs {
-        case y::yss => partSum(yss, carry + y)
-        case _ => carry
-      }
-      partSum(xs,0)
-    }
+    def sum(xs: List[Int]): Int = 
+      if (xs.isEmpty) 0 else xs.head + sum(xs.tail)
 
   
   /**
@@ -46,14 +40,18 @@ object Lists {
    * @return The largest element in `xs`
    * @throws java.util.NoSuchElementException if `xs` is an empty list
    */
-    def max(xs: List[Int]): Int = 
-      def partMax(ys: List[Int], min: Int) = 
-      match xs {
-        case x::yss => partSum(yss, if (x > min) x else max)
-        case _ => min
+    def max(xs: List[Int]): Int = {
+      def maxVal(currentBest: Int, xs: List[Int]): Int = {
+        if (xs.isEmpty) {
+          currentBest
+        } else {
+          if (currentBest < xs.head) maxVal(xs.head, xs.tail) else maxVal(currentBest, xs.tail)
+        }
       }
-      if (xs == null || xs == Nil) 
-        throw NoSuchElementException()
-      else 
-        partMax(xs, Int.MinValue)
-  }
+      if (xs.isEmpty) {
+        throw new NoSuchElementException()
+      } else {
+        maxVal(Int.MinValue, xs)
+      }
+    }
+}
