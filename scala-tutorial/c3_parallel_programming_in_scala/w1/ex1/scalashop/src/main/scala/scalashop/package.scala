@@ -39,14 +39,17 @@ package object scalashop {
 
   /** Computes the blurred RGBA value of a single pixel of the input image. */
   def boxBlurKernel(src: Img, x: Int, y: Int, radius: Int): RGBA = {
-    val xMax = clamp( x + radius, 0, src.width)
-    val xMin = clamp( x - radius, 0, src.width)
-    val yMax = clamp( y + radius, 0, src.height)
-    val yMin = clamp( y - radius, 0, src.height)
+    val xMax = clamp( x + radius, 0, src.width - 1)
+    val xMin = clamp( x - radius, 0, src.width - 1)
+    val yMax = clamp( y + radius, 0, src.height - 1)
+    val yMin = clamp( y - radius, 0, src.height - 1)
+
+    debug(s"boxBlurKernel")
     debug(s"\n(x,y)=(${x},${y}), radius=${radius}")
     debug(s"(width,height)=(${src.width},${src.height})")
     debug(s"(xMax,yMax)=(${xMax},${yMax})")
     debug(s"(xMin,yMin)=(${xMin},${yMin})")
+
     var (xi, yi) = (xMin, yMin)
     var (rAcc, gAcc, bAcc, aAcc) = (0, 0, 0 ,0)
     while( yi <= yMax) {
@@ -54,9 +57,11 @@ package object scalashop {
         val pixel = src(xi, yi)
         rAcc += red(pixel); gAcc += green(pixel); bAcc += blue(pixel); aAcc += alpha(pixel)
         xi += 1
+
         debug(s"(xi,yi)=(${xi},${yi})")
         debug(s" - pixel=${pixel}")
         debug(s" - rAcc=${rAcc}, gAcc=${gAcc}, bAcc=${bAcc}, aAcc=${aAcc}")
+
       }
       xi = xMin; yi += 1
     }
@@ -69,12 +74,14 @@ package object scalashop {
       src(x, y)
   }
 
-
-
   val isDebugMode = false
+  def debug(str : => String): Unit  =
+    if (isDebugMode) println(str)
 
-  def debug(str: String): Unit
-  = if (isDebugMode) println(str)
+  val isInfoMode = true
+  def info(str: => String): Unit =
+    if (isInfoMode) println(str)
+
 
 
 }
