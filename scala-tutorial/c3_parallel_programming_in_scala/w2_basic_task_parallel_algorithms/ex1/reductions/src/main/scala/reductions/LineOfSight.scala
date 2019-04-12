@@ -3,6 +3,8 @@ package reductions
 import org.scalameter._
 import common._
 
+import scala.math.min
+
 object LineOfSightRunner {
   
   val standardConfig = config(
@@ -34,7 +36,17 @@ object LineOfSight {
   def max(a: Float, b: Float): Float = if (a > b) a else b
 
   def lineOfSight(input: Array[Float], output: Array[Float]): Unit = {
-    ???
+    val maxLength = min(input.length, output.length)
+    if (maxLength == 0)
+      Unit
+    else {
+      output(0) = 0
+      var idx = 1
+      while (idx < maxLength) {
+        output(idx) = max(output(idx-1), input(idx) / idx)
+        idx += 1
+      }
+    }
   }
 
   sealed abstract class Tree {
@@ -50,7 +62,17 @@ object LineOfSight {
   /** Traverses the specified part of the array and returns the maximum angle.
    */
   def upsweepSequential(input: Array[Float], from: Int, until: Int): Float = {
-    ???
+    var maxVal = if (from == 0) 0 else input(from) / from
+    if (from == until - 1)
+      maxVal
+    else {
+      var idx = from + 1
+      while (idx < until) {
+        maxVal = max(maxVal, input(idx) / idx)
+        idx += 1
+      }
+      maxVal
+    }
   }
 
   /** Traverses the part of the array starting at `from` and until `end`, and
@@ -61,9 +83,15 @@ object LineOfSight {
    *  If the specified part of the array is longer than `threshold`, then the
    *  work is divided and done recursively in parallel.
    */
-  def upsweep(input: Array[Float], from: Int, end: Int,
-    threshold: Int): Tree = {
-    ???
+  def upsweep(input: Array[Float], from: Int, end: Int, threshold: Int): Tree = {
+    //TODO : Code is faulty... fix it
+    if ((end - from) < threshold)
+      Leaf(from, end, upsweepSequential(input, from, end))
+    else {
+      val middle = from + ((end - from) >> 1)
+      val (left, right) = parallel(upsweep(input, from, middle, threshold), upsweep(input, middle, end, threshold))
+      Node(left, right)
+    }
   }
 
   /** Traverses the part of the `input` array starting at `from` and until
@@ -71,7 +99,7 @@ object LineOfSight {
    *  given the `startingAngle`.
    */
   def downsweepSequential(input: Array[Float], output: Array[Float],
-    startingAngle: Float, from: Int, until: Int): Unit = {
+                          startingAngle: Float, from: Int, until: Int): Unit = {
     ???
   }
 
