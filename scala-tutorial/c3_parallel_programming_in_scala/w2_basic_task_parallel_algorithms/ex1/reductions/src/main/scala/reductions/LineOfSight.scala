@@ -84,8 +84,7 @@ object LineOfSight {
    *  work is divided and done recursively in parallel.
    */
   def upsweep(input: Array[Float], from: Int, end: Int, threshold: Int): Tree = {
-    //TODO : Code is faulty... fix it
-    if ((end - from) < threshold)
+    if ((end - from) <= threshold)
       Leaf(from, end, upsweepSequential(input, from, end))
     else {
       val middle = from + ((end - from) >> 1)
@@ -99,22 +98,34 @@ object LineOfSight {
    *  given the `startingAngle`.
    */
   def downsweepSequential(input: Array[Float], output: Array[Float],
-                          startingAngle: Float, from: Int, until: Int): Unit = {
-    ???
-  }
+                          startingAngle: Float, from: Int, until: Int): Unit =
+    if (from < until) {
+      output(from) = max(startingAngle, input(from) / from)
+      downsweepSequential(input, output, output(from), from + 1, until)
+    }
+
 
   /** Pushes the maximum angle in the prefix of the array to each leaf of the
    *  reduction `tree` in parallel, and then calls `downsweepSequential` to write
    *  the `output` angles.
    */
   def downsweep(input: Array[Float], output: Array[Float], startingAngle: Float,
-    tree: Tree): Unit = {
-    ???
+    tree: Tree): Unit = tree match {
+    case Leaf(from, until, _) =>
+      downsweepSequential(input, output, startingAngle, from, until)
+    case Node(left, right) =>
+      val (_,_) = parallel(
+                    downsweep(input, output, startingAngle, left),
+                    downsweep(input, output, max(startingAngle, left.maxPrevious), right))
+
   }
 
   /** Compute the line-of-sight in parallel. */
   def parLineOfSight(input: Array[Float], output: Array[Float],
     threshold: Int): Unit = {
-    ???
+    val startingAngle = 0
+    val precomputedPrefixTree = upsweep(input, 1, input.length, threshold)
+    downsweep(input, output, startingAngle, precomputedPrefixTree)
+    output(0) = startingAngle
   }
 }
