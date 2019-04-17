@@ -1,5 +1,9 @@
+import java.util
+
 import common._
 import barneshut.conctrees._
+
+import scala.collection.parallel.immutable.ParVector
 
 package object barneshut {
 
@@ -44,31 +48,36 @@ package object barneshut {
   }
 
   case class Empty(centerX: Float, centerY: Float, size: Float) extends Quad {
-    def massX: Float = ???
-    def massY: Float = ???
-    def mass: Float = ???
-    def total: Int = ???
-    def insert(b: Body): Quad = ???
+    def massX: Float = centerX
+    def massY: Float = centerY
+    def mass: Float = 0
+    def total: Int = 0
+    def insert(b: Body): Quad = new Leaf(centerX, centerY, size, List(b))
   }
 
-  case class Fork(
-    nw: Quad, ne: Quad, sw: Quad, se: Quad
-  ) extends Quad {
-    val centerX: Float = ???
-    val centerY: Float = ???
-    val size: Float = ???
-    val mass: Float = ???
-    val massX: Float = ???
-    val massY: Float = ???
-    val total: Int = ???
+  case class Fork(nw: Quad, ne: Quad, sw: Quad, se: Quad ) extends Quad {
+    val centerX: Float = nw.centerX + nw.size/2.0F
+    val centerY: Float = nw.centerY + nw.size/2.0F
+    val size: Float = nw.size * 2.0F
+    val mass: Float = nw.mass + ne.mass + sw.mass + se.mass
+    val massX: Float = (
+            nw.massX * nw.mass
+          + ne.massX * ne.mass
+          + sw.massX * sw.mass
+          + se.massX * se.mass ) / mass
+    val massY: Float = (
+            nw.massY * nw.mass
+          + ne.massY * ne.mass
+          + sw.massY * sw.mass
+          + se.massY * se.mass ) / mass
+    val total: Int =  nw.total + ne.total + sw.total + se.total
 
     def insert(b: Body): Fork = {
       ???
     }
   }
 
-  case class Leaf(centerX: Float, centerY: Float, size: Float, bodies: Seq[Body])
-  extends Quad {
+  case class Leaf(centerX: Float, centerY: Float, size: Float, bodies: Seq[Body]) extends Quad {
     val (mass, massX, massY) = (??? : Float, ??? : Float, ??? : Float)
     val total: Int = ???
     def insert(b: Body): Quad = ???
