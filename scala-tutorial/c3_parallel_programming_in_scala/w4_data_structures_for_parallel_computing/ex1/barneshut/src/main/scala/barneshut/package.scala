@@ -55,21 +55,6 @@ package object barneshut {
     def insert(b: Body): Quad = Leaf(centerX, centerY, size, List(b))
   }
 
-  /*
-  Actual:
-  Fork(
-  Leaf(0.0,0.0,1.0,List(barneshut.package$Body@4ac3c60d)),
-  Leaf(2.0,0.0,1.0,List(barneshut.package$Body@4facf68f)),
-  Empty(0.0,2.0,1.0),
-  Empty(2.0,2.0,1.0))
-
-  Expected:
-  Fork(
-  Leaf(0.5,0.5,1.0,List(barneshut.package$Body@4ac3c60d)),
-  Leaf(1.5,0.5,1.0,List(barneshut.package$Body@4facf68f)),
-  Empty(0.5,1.5,1.0),
-  Empty(1.5,1.5,1.0))
-   */
   case class Fork(nw: Quad, ne: Quad, sw: Quad, se: Quad ) extends Quad {
     def wX(q:Quad): Float = q.massX * q.mass
     def wY(q:Quad): Float = q.massY * q.mass
@@ -95,21 +80,22 @@ package object barneshut {
   }
 
   case class Leaf(centerX: Float, centerY: Float, size: Float, bodies: Seq[Body]) extends Quad {
-    def wY(b:Body): Float = b.y * b.mass
     def wX(b:Body): Float = b.x * b.mass
+    def wY(b:Body): Float = b.y * b.mass
     val mass: Float = bodies.map(_.mass).sum
     val (massX: Float, massY: Float) = (bodies.map(wX).sum / mass, bodies.map(wY).sum / mass)
     val total: Int = bodies.length
     def insert(b: Body): Quad = {
       if (size <= minimumSize)
-        Leaf(centerX, centerY, size, b+:bodies) // TODO: prepend might be slow depending on the Seq
+        Leaf(centerX, centerY, size, b+:bodies)
       else {
         val halfSize = size / 2.0F
+        val quarterSize = size / 4.0F
         val emptyFork = Fork(
-          Empty(centerX - halfSize, centerY - halfSize, halfSize),
-          Empty(centerX + halfSize, centerY - halfSize, halfSize),
-          Empty(centerX - halfSize, centerY + halfSize, halfSize),
-          Empty(centerX + halfSize, centerY + halfSize, halfSize))
+          Empty(centerX - quarterSize, centerY - quarterSize, halfSize),
+          Empty(centerX + quarterSize, centerY - quarterSize, halfSize),
+          Empty(centerX - quarterSize, centerY + quarterSize, halfSize),
+          Empty(centerX + quarterSize, centerY + quarterSize, halfSize))
         bodies
           .foldLeft(emptyFork)((accFork, body) => accFork.insert(body))
           .insert(b)
