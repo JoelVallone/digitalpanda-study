@@ -4,6 +4,7 @@ import common._
 import barneshut.conctrees._
 
 import scala.collection.parallel.immutable.ParVector
+import scala.math.round
 
 package object barneshut {
 
@@ -178,15 +179,24 @@ package object barneshut {
     val matrix = new Array[ConcBuffer[Body]](sectorPrecision * sectorPrecision)
     for (i <- 0 until matrix.length) matrix(i) = new ConcBuffer
 
+    def sector(coord: Float, minCoord: Float, maxCoord: Float): Int =
+      if (coord < minCoord) 0
+      else if (coord > maxCoord) sectorPrecision - 1
+      else round((coord - minCoord) / sectorSize)
+
     def +=(b: Body): SectorMatrix = {
-      ???
+      this(
+        sector(b.x, boundaries.minX, boundaries.maxX),
+        sector(b.y, boundaries.minY, boundaries.maxY)
+      ) += b
       this
     }
 
     def apply(x: Int, y: Int) = matrix(y * sectorPrecision + x)
 
     def combine(that: SectorMatrix): SectorMatrix = {
-      ???
+      for (i <- matrix.indices) matrix(i) = matrix(i).combine(that.matrix(i))
+      this
     }
 
     def toQuad(parallelism: Int): Quad = {
