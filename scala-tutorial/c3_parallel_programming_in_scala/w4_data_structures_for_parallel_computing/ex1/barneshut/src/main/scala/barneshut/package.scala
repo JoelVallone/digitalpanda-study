@@ -4,7 +4,7 @@ import common._
 import barneshut.conctrees._
 
 import scala.collection.parallel.immutable.ParVector
-import scala.math.round
+import scala.math.{floor,round}
 
 package object barneshut {
 
@@ -182,7 +182,7 @@ package object barneshut {
     def sector(coord: Float, minCoord: Float, maxCoord: Float): Int =
       if (coord < minCoord) 0
       else if (coord > maxCoord) sectorPrecision - 1
-      else round((coord - minCoord) / sectorSize)
+      else round(round(floor((coord - minCoord) / sectorSize)))
 
     def +=(b: Body): SectorMatrix = {
       this(
