@@ -4,6 +4,7 @@ import common._
 import barneshut.conctrees._
 
 import scala.collection.parallel.immutable.ParVector
+import scala.math.{floor,round}
 
 package object barneshut {
 
@@ -62,43 +63,44 @@ package object barneshut {
     val centerY: Float = nw.centerY + nw.size/2.0F
     val size: Float = nw.size * 2.0F
     val mass: Float = nw.mass + ne.mass + sw.mass + se.mass
-    val massX: Float = if (mass != 0) wX(nw) + wX(sw) + wX(sw) + wX(se) / mass else centerX
-    val massY: Float =  if (mass != 0) wY(nw) + wY(sw) + wY(sw) + wY(se) / mass else centerY
+    val massX: Float = if (mass != 0) (wX(nw) + wX(ne) + wX(sw) + wX(se)) / mass else centerX
+    val massY: Float = if (mass != 0) (wY(nw) + wY(ne) + wY(sw) + wY(se)) / mass else centerY
     val total: Int =  nw.total + ne.total + sw.total + se.total
 
     def insert(b: Body): Fork =
-        if (b.x <= centerY)
-          if (b.y <= centerX)
+        if (b.y <= centerY)
+          if (b.x <= centerX)
             Fork(nw.insert(b), ne, sw, se)
           else
             Fork(nw, ne.insert(b), sw, se)
         else
-          if (b.y <= centerX)
+          if (b.x <= centerX)
             Fork(nw, ne, sw.insert(b), se)
           else
             Fork(nw, ne, sw, se.insert(b))
   }
 
   case class Leaf(centerX: Float, centerY: Float, size: Float, bodies: Seq[Body]) extends Quad {
-    def wY(b:Body): Float = b.y * b.mass
     def wX(b:Body): Float = b.x * b.mass
+    def wY(b:Body): Float = b.y * b.mass
     val mass: Float = bodies.map(_.mass).sum
     val (massX: Float, massY: Float) = (bodies.map(wX).sum / mass, bodies.map(wY).sum / mass)
     val total: Int = bodies.length
     def insert(b: Body): Quad = {
-      if (bodies.length + 1 > minimumSize) {
+      if (size <= minimumSize)
+        Leaf(centerX, centerY, size, b+:bodies)
+      else {
         val halfSize = size / 2.0F
+        val quarterSize = size / 4.0F
         val emptyFork = Fork(
-          Empty(centerX - halfSize, centerY - halfSize, halfSize),
-          Empty(centerX + halfSize, centerY - halfSize, halfSize),
-          Empty(centerX - halfSize, centerY + halfSize, halfSize),
-          Empty(centerX + halfSize, centerY + halfSize, halfSize))
+          Empty(centerX - quarterSize, centerY - quarterSize, halfSize),
+          Empty(centerX + quarterSize, centerY - quarterSize, halfSize),
+          Empty(centerX - quarterSize, centerY + quarterSize, halfSize),
+          Empty(centerX + quarterSize, centerY + quarterSize, halfSize))
         bodies
           .foldLeft(emptyFork)((accFork, body) => accFork.insert(body))
           .insert(b)
       }
-      else
-        Leaf(centerX,centerY,size, b+:bodies) // TODO: prepend might be slow depending on the Seq
     }
   }
 
@@ -150,10 +152,12 @@ package object barneshut {
         case Empty(_, _, _) =>
           // no force
         case Leaf(_, _, _, bodies) =>
-          // add force contribution of each body by calling addForce
+            bodies.foreach(b => addForce(b.mass, b.x, b.y))
         case Fork(nw, ne, sw, se) =>
-          // see if node is far enough from the body,
-          // or recursion is needed
+          if (quad.size / distance(quad.massX, quad.massY, x, y) < theta)
+            addForce(quad.mass, quad.massX, quad.massY)
+          else
+            traverse(nw);traverse(ne);traverse(sw);traverse(se);
       }
 
       traverse(quad)
@@ -175,15 +179,24 @@ package object barneshut {
     val matrix = new Array[ConcBuffer[Body]](sectorPrecision * sectorPrecision)
     for (i <- 0 until matrix.length) matrix(i) = new ConcBuffer
 
+    def sector(coord: Float, minCoord: Float, maxCoord: Float): Int =
+      if (coord < minCoord) 0
+      else if (coord > maxCoord) sectorPrecision - 1
+      else round(round(floor((coord - minCoord) / sectorSize)))
+
     def +=(b: Body): SectorMatrix = {
-      ???
+      this(
+        sector(b.x, boundaries.minX, boundaries.maxX),
+        sector(b.y, boundaries.minY, boundaries.maxY)
+      ) += b
       this
     }
 
     def apply(x: Int, y: Int) = matrix(y * sectorPrecision + x)
 
     def combine(that: SectorMatrix): SectorMatrix = {
-      ???
+      for (i <- matrix.indices) matrix(i) = matrix(i).combine(that.matrix(i))
+      this
     }
 
     def toQuad(parallelism: Int): Quad = {
