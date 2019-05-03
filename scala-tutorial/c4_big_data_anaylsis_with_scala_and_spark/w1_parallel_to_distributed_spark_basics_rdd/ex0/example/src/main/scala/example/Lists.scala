@@ -23,7 +23,7 @@ object Lists {
    * @param xs A list of natural numbers
    * @return The sum of all elements in `xs`
    */
-    def sum(xs: List[Int]): Int = ???
+    def sum(xs: List[Int]): Int = carryOp(_+_)(xs, 0)
   
   /**
    * This method returns the largest element in a list of integers. If the
@@ -38,5 +38,9 @@ object Lists {
    * @return The largest element in `xs`
    * @throws java.util.NoSuchElementException if `xs` is an empty list
    */
-    def max(xs: List[Int]): Int = ???
+    def max(xs: List[Int]): Int = carryOp(math.max)(xs, xs.head)
+
+    def carryOp(carryUpdate: (Int, Int) => Int)(xs: List[Int], carry: Int) : Int = {
+      if (xs.isEmpty) carry else carryOp(carryUpdate)(xs.tail, carryUpdate(xs.head, carry))
+    }
   }
