@@ -1,11 +1,9 @@
 package stackoverflow
 
-import org.apache.spark.SparkConf
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
+import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
+
 import annotation.tailrec
-import scala.reflect.ClassTag
 
 /** A raw stackoverflow posting, either a question or an answer */
 case class Posting(postingType: Int, id: Int, acceptedAnswer: Option[Int], parentId: Option[QID], score: Int, tags: Option[String]) extends Serializable
@@ -14,7 +12,10 @@ case class Posting(postingType: Int, id: Int, acceptedAnswer: Option[Int], paren
 /** The main class */
 object StackOverflow extends StackOverflow {
 
-  @transient lazy val conf: SparkConf = new SparkConf().setMaster("local").setAppName("StackOverflow")
+  @transient lazy val conf: SparkConf = new SparkConf()
+    .setMaster("local")
+    .setAppName("StackOverflow")
+    .set("spark.driver.bindAddress", "127.0.0.1")
   @transient lazy val sc: SparkContext = new SparkContext(conf)
 
   /** Main function */
@@ -78,7 +79,17 @@ class StackOverflow extends Serializable {
 
   /** Group the questions and answers together */
   def groupedPostings(postings: RDD[Posting]): RDD[(QID, Iterable[(Question, Answer)])] = {
-    ???
+    val questions: RDD[(QID, Question)] = postings
+      .filter(_.postingType == 1)
+      .map(p => (p.id, p))
+      .partitionBy(new HashPartitioner(StackOverflow.sc.defaultParallelism))
+
+    val answers: RDD[(QID, Answer)] = postings
+      .filter(_.postingType == 2)
+      .map(p => (p.parentId.get, p))
+      .partitionBy(new HashPartitioner(StackOverflow.sc.defaultParallelism)) //TODO: fix: Only one SparkContext may be running in this JVM
+
+      questions.join(answers).groupByKey().persist()
   }
 
 
@@ -96,8 +107,8 @@ class StackOverflow extends Serializable {
           }
       highScore
     }
-
-    ???
+    //TODO: Pass tests with provided expected data
+    grouped.map{ p =>  ( p._2.head._1,  answerHighScore(p._2.map(_._2).toArray))}
   }
 
 
@@ -116,7 +127,7 @@ class StackOverflow extends Serializable {
         }
       }
     }
-
+    //TODO: Implement tests with provided expected data
     ???
   }
 
