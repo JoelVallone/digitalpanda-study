@@ -1,6 +1,6 @@
 package stackoverflow
 
-import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 
 import annotation.tailrec
@@ -82,14 +82,12 @@ class StackOverflow extends Serializable {
     val questions: RDD[(QID, Question)] = postings
       .filter(_.postingType == 1)
       .map(p => (p.id, p))
-      .partitionBy(new HashPartitioner(StackOverflow.sc.defaultParallelism))
 
     val answers: RDD[(QID, Answer)] = postings
       .filter(_.postingType == 2)
       .map(p => (p.parentId.get, p))
-      .partitionBy(new HashPartitioner(StackOverflow.sc.defaultParallelism)) //TODO: fix: Only one SparkContext may be running in this JVM
 
-      questions.join(answers).groupByKey().persist()
+      questions.join(answers).groupByKey()
   }
 
 
@@ -107,7 +105,6 @@ class StackOverflow extends Serializable {
           }
       highScore
     }
-    //TODO: Pass tests with provided expected data
     grouped.map{ p =>  ( p._2.head._1,  answerHighScore(p._2.map(_._2).toArray))}
   }
 
@@ -127,8 +124,10 @@ class StackOverflow extends Serializable {
         }
       }
     }
-    //TODO: Implement tests with provided expected data
-    ???
+    scored
+      .map(p => (firstLangInTag(p._1.tags, langs), p._2))
+      .filter(_._1.isDefined)
+      .map(p => (p._1.get * langSpread, p._2))
   }
 
 
@@ -136,6 +135,8 @@ class StackOverflow extends Serializable {
   def sampleVectors(vectors: RDD[(LangIndex, HighScore)]): Array[(Int, Int)] = {
 
     assert(kmeansKernels % langs.length == 0, "kmeansKernels should be a multiple of the number of languages studied.")
+    println(s"langs=$langs")
+    println(s"kmeansKernels=$kmeansKernels")
     val perLang = kmeansKernels / langs.length
 
     // http://en.wikipedia.org/wiki/Reservoir_sampling
@@ -181,11 +182,17 @@ class StackOverflow extends Serializable {
   //
   //
 
-  /** Main kmeans computation */
+  /** Main kmeans computation */      //(LangIndex, HighScore)
   @tailrec final def kmeans(means: Array[(Int, Int)], vectors: RDD[(Int, Int)], iter: Int = 1, debug: Boolean = false): Array[(Int, Int)] = {
-    val newMeans = means.clone() // you need to compute newMeans
+/* V1 */
+    val newMeans = vectors
+        .map(v =>(findClosest(v, means), v))
+        .groupByKey() // shuffle
+        .mapValues(c => averageVectors(c))
+        .collect() //To local node
+          .sortBy(_._1)
+          .map(_._2)
 
-    // TODO: Fill in the newMeans array
     val distance = euclideanDistance(means, newMeans)
 
     if (debug) {
