@@ -1,6 +1,6 @@
 package stackoverflow
 
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 
 import annotation.tailrec
@@ -24,13 +24,23 @@ object StackOverflow extends StackOverflow {
     val lines   = sc.textFile("src/main/resources/stackoverflow/stackoverflow.csv")
     val raw     = rawPostings(lines)
     val grouped = groupedPostings(raw)
-    val scored  = scoredPostings(grouped)
+    val scored  = scoredPostings(grouped)//.sample(true, 0.1, 0)
     val vectors = vectorPostings(scored)
-//    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
-
+    val count = vectors.count()
+    /*
+    println("Press enter to run kMeans")
+    scala.io.StdIn.readLine()
+    println("Starting kMeans")
+    assert(count == 2121822, "Incorrect number of vectors: " + count)
+    */
     val means   = kmeans(sampleVectors(vectors), vectors, debug = true)
     val results = clusterResults(means, vectors)
     printResults(results)
+    /*
+    println("Press enter to stop Spark")
+    scala.io.StdIn.readLine()
+    println("Stopping Spark")
+    */
   }
 }
 
@@ -49,13 +59,13 @@ class StackOverflow extends Serializable {
   assert(langSpread > 0, "If langSpread is zero we can't recover the language from the input data!")
 
   /** K-means parameter: Number of clusters */
-  def kmeansKernels = 45
+  def kmeansKernels = 30
 
   /** K-means parameter: Convergence criteria */
   def kmeansEta: Double = 20.0D
 
   /** K-means parameter: Maximum iterations */
-  def kmeansMaxIterations = 120
+  def kmeansMaxIterations = 2
 
 
   //
@@ -128,6 +138,8 @@ class StackOverflow extends Serializable {
       .map(p => (firstLangInTag(p._1.tags, langs), p._2))
       .filter(_._1.isDefined)
       .map(p => (p._1.get * langSpread, p._2))
+      .partitionBy(new HashPartitioner(45))
+      .persist()
   }
 
 
@@ -185,15 +197,19 @@ class StackOverflow extends Serializable {
   /** Main kmeans computation */      //(LangIndex, HighScore)
   @tailrec final def kmeans(means: Array[(Int, Int)], vectors: RDD[(Int, Int)], iter: Int = 1, debug: Boolean = false): Array[(Int, Int)] = {
 /* V1 */
-    val newMeans = vectors
+    val meansUpdate = vectors
         .map(v =>(findClosest(v, means), v))
         .groupByKey() // shuffle
         .mapValues(c => averageVectors(c))
-        .collect() //To local node
-          .sortBy(_._1)
-          .map(_._2)
+        .collectAsMap()
+
+    val newMeans = means.clone().zipWithIndex
+      .map{case (pair, idx: Int)  => meansUpdate.getOrElse(idx, pair)}
 
     val distance = euclideanDistance(means, newMeans)
+
+    //println(s"means=${means.mkString(",")}")
+    //println(s"newMeans=${newMeans.mkString(",")}")
 
     if (debug) {
       println(s"""Iteration: $iter
@@ -293,10 +309,21 @@ class StackOverflow extends Serializable {
     val closestGrouped = closest.groupByKey()
 
     val median = closestGrouped.mapValues { vs =>
-      val langLabel: String   = ??? // most common language in the cluster
-      val langPercent: Double = ??? // percent of the questions in the most common language
-      val clusterSize: Int    = ???
-      val medianScore: Int    = ???
+
+      val langCountMap =
+        vs
+        .map(p => (p._1, 1))
+        .groupBy(_._1)
+        .map(p => (p._1 / langSpread, p._2.map(_._2).sum))
+
+      val bestLangId =
+        langCountMap
+          .maxBy(_._2)._1
+
+      val langLabel: String   = langs(bestLangId) // most common language in the cluster
+      val clusterSize: Int    = vs.size
+      val langPercent: Double = (langCountMap(bestLangId) * 100) / clusterSize // percent of the questions in the most common language
+      val medianScore: Int    = vs.map(_._2).toIndexedSeq.sorted.apply(clusterSize/2)
 
       (langLabel, langPercent, clusterSize, medianScore)
     }

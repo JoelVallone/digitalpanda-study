@@ -26,7 +26,7 @@ class StackOverflowSuite extends FunSuite with BeforeAndAfterAll {
     sc.stop()
   }
 
-  lazy val uutBasic = new StackOverflow {
+  private lazy val uutBasic = new StackOverflow {
     override val langs =
       List(
         "JavaScript", "Java", "PHP", "Python", "C#", "C++", "Ruby", "CSS",
@@ -112,7 +112,7 @@ class StackOverflowSuite extends FunSuite with BeforeAndAfterAll {
   }
   */
 
-  lazy val uutClustering = new StackOverflow {
+  private lazy val uutClustering = new StackOverflow {
     override val langs = List("Java", "C++")
     override def langSpread = 50000
     override def kmeansKernels = 2
