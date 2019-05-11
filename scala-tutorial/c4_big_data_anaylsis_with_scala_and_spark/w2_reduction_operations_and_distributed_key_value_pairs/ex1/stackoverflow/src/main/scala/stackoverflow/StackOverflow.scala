@@ -36,11 +36,10 @@ object StackOverflow extends StackOverflow {
     val means   = kmeans(sampleVectors(vectors), vectors, debug = true)
     val results = clusterResults(means, vectors)
     printResults(results)
-    /*
+
     println("Press enter to stop Spark")
     scala.io.StdIn.readLine()
     println("Stopping Spark")
-    */
   }
 }
 
@@ -59,13 +58,13 @@ class StackOverflow extends Serializable {
   assert(langSpread > 0, "If langSpread is zero we can't recover the language from the input data!")
 
   /** K-means parameter: Number of clusters */
-  def kmeansKernels = 30
+  def kmeansKernels = 45
 
   /** K-means parameter: Convergence criteria */
   def kmeansEta: Double = 20.0D
 
   /** K-means parameter: Maximum iterations */
-  def kmeansMaxIterations = 2
+  def kmeansMaxIterations = 120
 
 
   //
@@ -320,10 +319,18 @@ class StackOverflow extends Serializable {
         langCountMap
           .maxBy(_._2)._1
 
+      val sortedScores =
+        vs
+          .map(_._2)
+          .toIndexedSeq
+          .sorted
+
       val langLabel: String   = langs(bestLangId) // most common language in the cluster
       val clusterSize: Int    = vs.size
-      val langPercent: Double = (langCountMap(bestLangId) * 100) / clusterSize // percent of the questions in the most common language
-      val medianScore: Int    = vs.map(_._2).toIndexedSeq.sorted.apply(clusterSize/2)
+      val langPercent: Double = (langCountMap(bestLangId) * 100) / clusterSize  // percent of the questions in the most common language
+      val medianScore: Int    =
+        if ((clusterSize % 2) == 0) (sortedScores(clusterSize/2 - 1) + sortedScores(clusterSize/2) )/2
+        else sortedScores(clusterSize/2)
 
       (langLabel, langPercent, clusterSize, medianScore)
     }
