@@ -3,6 +3,7 @@ package observatory
 import java.time.LocalDate
 
 import observatory.Main.sc
+import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 
 /**
@@ -16,13 +17,76 @@ object Extraction {
     * @param temperaturesFile Path of the temperatures resource file to use (e.g. "/1975.csv")
     * @return A sequence containing triplets (date, location, temperature)
     */
-  def locateTemperatures(year: Year, stationsFile: String, temperaturesFile: String): Iterable[(LocalDate, Location, Temperature)] = {
+  def locateTemperatures(year: Year,
+                         stationsFile: String,
+                         temperaturesFile: String): Iterable[(LocalDate, Location, Temperature)] = {
     sparkLocateTemperatures(year, stationsFile, temperaturesFile).collect().seq
   }
 
-  def sparkLocateTemperatures(year: Year, stationsFile: String, temperaturesFile: String): RDD[(LocalDate, Location, Temperature)] = {
-    val tempLines: RDD[String]  = sc.textFile(temperaturesFile)
-    val stationLines: RDD[String]  = sc.textFile(stationsFile)
+  def sparkLocateTemperatures(year: Year,
+                              stationsFile: String,
+                              temperaturesFile: String): RDD[(LocalDate, Location, Temperature)] = {
+    def parseDouble(s: String) = try { Some(s.toDouble) } catch { case _ => None }
+    val stations  = sc.textFile(stationsFile)
+      .map( s => {
+        val strings = s.split(",")
+        if (strings.length == 5) {
+          val ( stn:String ,wban :String,
+                latitude:String, longitude:String) = strings
+          if ( (stn.isEmpty && stn.isEmpty) || latitude.isEmpty || longitude.isEmpty)
+            None
+          else
+            Some(((stn, wban), latitude.toDouble, longitude.toDouble))
+        }
+        else
+          None
+      })
+      .filter(c => c.isDefined)
+      .map(_.get)
+
+    val temperatures = sc.textFile(temperaturesFile)
+      .map( s => {
+        val strings = s.split(",")
+        if (strings.length == 6) {
+          val ( stn:String, wban :String,
+                day :String, month :String, tempFarenheit :String) = strings
+          if ((stn.isEmpty && stn.isEmpty) || day.isEmpty || month.isEmpty || tempFarenheit.isEmpty)
+            None
+          else
+            Some(((stn, wban), LocalDate.of(2015, 8, 11),))
+        }
+        else
+          None
+      })
+      .filter(c => c.isDefined)
+      .map(_.get)
+
+
+/* For year 2015
+
+Stations:
+  STN     ,WBAN   ,Latitude ,	Longitude
+  010013  ,       ,         ,           => (0) rejected as it has no coordinates
+  724017  ,03707  ,+37.358  ,-078.438   => (1) ok
+  724017  ,       ,+37.350  ,-078.433   => (2) ok
+
+Temperatures:
+  STN     ,WBAN   ,Month    ,Day  ,Temperature (Fahrenheit)
+  010013  ,       ,11       ,25   ,39.2  => rejected as station (0) has no coordinates
+  724017  ,       ,08       ,11   ,81.14 => ok, with station  (2)
+  724017  ,03707  ,12       ,06   ,32    => ok, with station  (1)
+  724017  ,03707  ,01       ,29   ,35.6  => ok, with station  (1)
+
+Result:
+  Seq(
+    (LocalDate.of(2015, 8, 11), Location(37.35, -78.433), 27.3),
+    (LocalDate.of(2015, 12, 6), Location(37.358, -78.438), 0.0),
+    (LocalDate.of(2015, 1, 29), Location(37.358, -78.438), 2.0)
+  )
+*/
+
+
+
     ???
   }
 
