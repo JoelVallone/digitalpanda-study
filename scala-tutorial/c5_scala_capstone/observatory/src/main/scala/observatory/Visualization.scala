@@ -1,11 +1,16 @@
 package observatory
 
+import java.lang.Math.{abs, acos, cos, sin}
+
 import com.sksamuel.scrimage.{Image, Pixel}
 
 /**
   * 2nd milestone: basic visualization
   */
 object Visualization {
+
+  val p = 2.0
+  val earthRadiusMeters = 6371000.0
 
   /**
     * @param temperatures Known temperatures: pairs containing a location and the temperature at this location
@@ -14,6 +19,14 @@ object Visualization {
     */
   def predictTemperature(temperatures: Iterable[(Location, Temperature)], location: Location): Temperature = {
     ???
+  }
+
+  def dist(p: Location, q: Location): Double = {
+    val centralAngle =
+      if (p == q) 0
+      else if (p.latRad == q.latRad || p.lonRad == q.lonRad) Math.PI
+      else acos(sin(p.latRad)*sin(q.latRad) + cos(p.latRad)*cos(q.latRad) + abs(p.lonRad - q.lonRad))
+    earthRadiusMeters*centralAngle
   }
 
   /**

@@ -1,11 +1,16 @@
 package observatory
 
+import java.lang.Math.toRadians
+
 /**
   * Introduced in Week 1. Represents a location on the globe.
   * @param lat Degrees of latitude, -90 ≤ lat ≤ 90
   * @param lon Degrees of longitude, -180 ≤ lon ≤ 180
   */
-case class Location(lat: Double, lon: Double)
+case class Location(lat: Double, lon: Double) {
+  lazy val latRad : Double = toRadians(lat)
+  lazy val lonRad : Double = toRadians(lon)
+}
 
 /**
   * Introduced in Week 3. Represents a tiled web map tile.
