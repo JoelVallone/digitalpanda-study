@@ -14,6 +14,4 @@ object Main extends App {
 
   @transient lazy val sc: SparkContext = new SparkContext(conf)
 
-
-
 }
