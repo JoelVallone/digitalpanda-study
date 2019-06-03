@@ -3,11 +3,16 @@ package observatory
 import java.lang.Math.{abs, acos, cos, sin}
 
 import com.sksamuel.scrimage.{Image, Pixel}
+import observatory.Main.sc
+import org.apache.spark.rdd.RDD
 
 /**
   * 2nd milestone: basic visualization
   */
 object Visualization {
+
+  import org.apache.log4j.{Level, Logger}
+  Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
 
   val p = 2.0
   val earthRadiusMeters = 6371000.0
@@ -18,7 +23,20 @@ object Visualization {
     * @return The predicted temperature at `location`
     */
   def predictTemperature(temperatures: Iterable[(Location, Temperature)], location: Location): Temperature = {
-    ???
+    predictTemperatureSpark(sc.parallelize(temperatures.toSeq), location)
+  }
+
+  def predictTemperatureSpark(temperatures: RDD[(Location, Temperature)], targetLocation: Location): Temperature = {
+    val weightedTemps = temperatures
+      .map {case (location, temperature) => (dist(location, targetLocation), temperature)}
+
+    val weightSum = weightedTemps
+      .aggregate(0.0)((acc, wTemp) => acc + wTemp._1, _+_)
+
+    if(weightSum != 0)
+      weightedTemps
+        .aggregate(0.0)((acc, wTemp) => acc + wTemp._1 * wTemp._2,_+_) / weightSum
+    else 0
   }
 
   def dist(p: Location, q: Location): Double = {
