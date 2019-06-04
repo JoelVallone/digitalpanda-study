@@ -56,6 +56,34 @@ object Visualization {
     ???
   }
 
+  def findLowUp(points: Iterable[(Temperature, Color)],  value: Temperature,
+                low: (Temperature, Color), up: (Temperature, Color),
+                min: (Temperature, Color), max: (Temperature, Color)): ((Temperature, Color),(Temperature, Color)) = {
+    if (points.isEmpty)
+      (if( value >= low._1 ) low else min, if( value <= up._1) up else max)
+    else {
+      val cand = points.head
+      findLowUp(
+        points.tail, value,
+        lowerBound(low, cand, value),
+        upperBound(low, cand, value),
+        if(cand._1 < min._1) cand else min,
+        if(cand._1 > max._1) cand else max)
+    }
+
+    def lowerBound(curLow:  (Temperature, Color), candLow:  (Temperature, Color), t: Temperature): (Temperature, Color) = {
+      val newDelta = t - candLow._1
+      val oldDelta = t - curLow._1
+      if (abs(newDelta) <= abs(oldDelta) && newDelta >= 0) candLow else curLow
+    }
+
+    def upperBound(curUp:  (Temperature, Color), candUp:  (Temperature, Color), t: Temperature): (Temperature, Color) = {
+      val newDelta = candUp._1 - t
+      val oldDelta = curUp._1 - t
+      if (abs(newDelta) <= abs(oldDelta) && newDelta >= 0) candUp else curUp
+    }
+  }
+
   /**
     * @param temperatures Known temperatures
     * @param colors Color scale

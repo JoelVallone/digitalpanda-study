@@ -68,7 +68,7 @@ object Extraction {
         .map(_.get)
         .partitionBy(new HashPartitioner(120))
 
-  def toCelsius(temperature: Temperature) : Double  = (temperature -32) * 5/9
+  def toCelsius(temperature: Temperature) : Double  = (temperature - 32.0) * 5.0/9.0
 
   def parseTemperatureRow(year: Int)(row: String): Option[((String, String), (LocalDate, Temperature))] = {
     val col = row.split(",")
