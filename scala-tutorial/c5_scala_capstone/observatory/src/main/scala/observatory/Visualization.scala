@@ -1,6 +1,6 @@
 package observatory
 
-import java.lang.Math.{abs, acos, cos, sin}
+import java.lang.Math._
 
 import com.sksamuel.scrimage.{Image, Pixel}
 import observatory.Main.sc
@@ -26,6 +26,7 @@ object Visualization {
     predictTemperatureSpark(sc.parallelize(temperatures.toSeq), location)
   }
 
+  // https://en.wikipedia.org/wiki/Inverse_distance_weighting
   def predictTemperatureSpark(temperatures: RDD[(Location, Temperature)], targetLocation: Location): Temperature = {
     val weightedTemps = temperatures
       .map {case (location, temperature) => (dist(location, targetLocation), temperature)}
@@ -39,6 +40,7 @@ object Visualization {
     else 0
   }
 
+  // https://en.wikipedia.org/wiki/Great-circle_distance
   def dist(p: Location, q: Location): Double = {
     val centralAngle =
       if (p == q) 0
@@ -47,40 +49,52 @@ object Visualization {
     earthRadiusMeters*centralAngle
   }
 
+
   /**
     * @param points Pairs containing a value and its associated color
     * @param value The value to interpolate
     * @return The color that corresponds to `value`, according to the color scale defined by `points`
     */
   def interpolateColor(points: Iterable[(Temperature, Color)], value: Temperature): Color = {
-    ???
+
+    // https://en.wikipedia.org/wiki/Linear_interpolation
+    def interpolateRGB(low: (Temperature, Int), up: (Temperature, Int), value: Temperature): Int = {
+      val normDist = (value - low._1) / (up._1 - low._1)
+      round(low._2 * (1 - normDist) + low._2 * normDist).intValue()
+    }
+
+    val (low, up) = findLowUp(points, value, points.head, points.head, points.head, points.head)
+    if (low == up)
+      low._2
+    else
+      Color(
+        interpolateRGB((low._1, low._2.red),    (up._1, up._2.red),   value),
+        interpolateRGB((low._1, low._2.green),  (up._1, up._2.green), value),
+        interpolateRGB((low._1, low._2.blue),   (up._1, up._2.blue),  value)
+      )
   }
 
-  def findLowUp(points: Iterable[(Temperature, Color)],  value: Temperature,
-                low: (Temperature, Color), up: (Temperature, Color),
+  // O(N)... :-/
+  def findLowUp(points: Iterable[(Temperature, Color)], value: Temperature,
+                lowBnd: (Temperature, Color), upBnd: (Temperature, Color),
                 min: (Temperature, Color), max: (Temperature, Color)): ((Temperature, Color),(Temperature, Color)) = {
+
+    def nearestBound(delta: ((Temperature, Color),Temperature) => Temperature)
+                    (cur:  (Temperature, Color), cand:  (Temperature, Color), t: Temperature): (Temperature, Color) = {
+      val newDelta = delta(cand, t)
+      val oldDelta = delta(cur, t)
+      if (abs(newDelta) <= abs(oldDelta) && newDelta >= 0) cand else cur
+    }
+
     if (points.isEmpty)
-      (if( value >= low._1 ) low else min, if( value <= up._1) up else max)
+      (if( value >= lowBnd._1 ) lowBnd else min, if( value <= upBnd._1) upBnd else max)
     else {
       val cand = points.head
       findLowUp(
         points.tail, value,
-        lowerBound(low, cand, value),
-        upperBound(low, cand, value),
-        if(cand._1 < min._1) cand else min,
-        if(cand._1 > max._1) cand else max)
-    }
-
-    def lowerBound(curLow:  (Temperature, Color), candLow:  (Temperature, Color), t: Temperature): (Temperature, Color) = {
-      val newDelta = t - candLow._1
-      val oldDelta = t - curLow._1
-      if (abs(newDelta) <= abs(oldDelta) && newDelta >= 0) candLow else curLow
-    }
-
-    def upperBound(curUp:  (Temperature, Color), candUp:  (Temperature, Color), t: Temperature): (Temperature, Color) = {
-      val newDelta = candUp._1 - t
-      val oldDelta = curUp._1 - t
-      if (abs(newDelta) <= abs(oldDelta) && newDelta >= 0) candUp else curUp
+        nearestBound(-_._1 + _)(lowBnd, cand, value),   nearestBound(_._1 - _)(upBnd, cand, value),
+        if(cand._1 < min._1) cand else min,             if(cand._1 > max._1) cand else max
+      )
     }
   }
 
@@ -90,6 +104,9 @@ object Visualization {
     * @return A 360×180 image where each pixel shows the predicted temperature at its location
     */
   def visualize(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
+    /*temperatures.par
+      .map( locTemp => (locTemp._1, interpolateColor(colors, locTemp._2))*/
+
     ???
   }
 
