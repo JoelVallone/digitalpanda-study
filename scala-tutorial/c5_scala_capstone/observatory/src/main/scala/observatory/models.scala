@@ -2,6 +2,8 @@ package observatory
 
 import java.lang.Math.toRadians
 
+import com.sksamuel.scrimage.RGBColor
+
 /**
   * Introduced in Week 1. Represents a location on the globe.
   * @param lat Degrees of latitude, -90 ≤ lat ≤ 90
@@ -43,5 +45,7 @@ case class CellPoint(x: Double, y: Double)
   * @param green Level of green, 0 ≤ green ≤ 255
   * @param blue Level of blue, 0 ≤ blue ≤ 255
   */
-case class Color(red: Int, green: Int, blue: Int)
+case class Color(red: Int, green: Int, blue: Int) extends com.sksamuel.scrimage.Color {
+  override def toRGB: RGBColor = RGBColor(red, green, blue, 255)
+}
 
