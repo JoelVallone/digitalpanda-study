@@ -17,7 +17,7 @@ object Visualization {
   val p = 2.0
   val earthRadiusMeters = 6371000.0
 
-  /**
+  /**interpolateColor
     * @param temperatures Known temperatures: pairs containing a location and the temperature at this location
     * @param location Location where to predict the temperature
     * @return The predicted temperature at `location`
@@ -29,7 +29,7 @@ object Visualization {
   // https://en.wikipedia.org/wiki/Inverse_distance_weighting
   def predictTemperatureSpark(temperatures: RDD[(Location, Temperature)], targetLocation: Location): Temperature = {
     val weightedTemps = temperatures
-      .map {case (location, temperature) => (dist(location, targetLocation), temperature)}
+      .map {case (location, temperature) => (circleDist(location, targetLocation), temperature)}
 
     val weightSum = weightedTemps
       .aggregate(0.0)((acc, wTemp) => acc + wTemp._1, _+_)
@@ -41,7 +41,7 @@ object Visualization {
   }
 
   // https://en.wikipedia.org/wiki/Great-circle_distance
-  def dist(p: Location, q: Location): Double = {
+  def circleDist(p: Location, q: Location): Double = {
     val centralAngle =
       if (p == q) 0
       else if (p.latRad == q.latRad || p.lonRad == q.lonRad) Math.PI
@@ -60,7 +60,7 @@ object Visualization {
     // https://en.wikipedia.org/wiki/Linear_interpolation
     def interpolateRGB(low: (Temperature, Int), up: (Temperature, Int), value: Temperature): Int = {
       val normDist = (value - low._1) / (up._1 - low._1)
-      round(low._2 * (1 - normDist) + low._2 * normDist).intValue()
+      round(low._2 * (1 - normDist) + up._2 * normDist).intValue()
     }
 
     val (low, up) = findLowUp(points, value, points.head, points.head, points.head, points.head)
@@ -98,17 +98,22 @@ object Visualization {
     }
   }
 
+
+
   /**
     * @param temperatures Known temperatures
     * @param colors Color scale
     * @return A 360×180 image where each pixel shows the predicted temperature at its location
     */
   def visualize(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
-    val pixels : Array[Pixel] = temperatures
+    def gpsImageOrdering: Ordering[(Location, _)] =
+      Ordering[(Double, Double)].on((t: (Location, _)) => (-t._1.lat, t._1.lon))
+
+     val pixels : Array[Pixel] = temperatures
       .par
         .map( locTemp => (locTemp._1, Pixel(interpolateColor(colors, locTemp._2))))
       .toArray
-        .sorted(Ordering[(Double, Double)].on( t => (-t._1.lat, t._1.lon)))
+        .sorted(gpsImageOrdering)
         .map(_._2)
     Image(360, 180, pixels)
   }
