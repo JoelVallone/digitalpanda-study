@@ -4,6 +4,8 @@ import java.lang.Math.toRadians
 
 import com.sksamuel.scrimage.RGBColor
 
+import scala.math.round
+
 /**
   * Introduced in Week 1. Represents a location on the globe.
   * @param lat Degrees of latitude, -90 ≤ lat ≤ 90
@@ -12,6 +14,7 @@ import com.sksamuel.scrimage.RGBColor
 case class Location(lat: Double, lon: Double) {
   lazy val latRad : Double = toRadians(lat)
   lazy val lonRad : Double = toRadians(lon)
+  lazy val rounded : Location = Location(round(lat), round(lon))
 }
 
 /**

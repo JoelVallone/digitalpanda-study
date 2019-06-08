@@ -4,6 +4,7 @@ import java.lang.Math._
 
 import com.sksamuel.scrimage.{Image, Pixel}
 import observatory.Main.sc
+import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 
 /**
@@ -28,27 +29,41 @@ object Visualization {
 
   // https://en.wikipedia.org/wiki/Inverse_distance_weighting
   def predictTemperatureSpark(temperatures: RDD[(Location, Temperature)], targetLocation: Location): Temperature = {
-    val weightedTemps = temperatures
+    val distTemps = temperatures
       .map {case (location, temperature) => (circleDist(location, targetLocation), temperature)}
+      .persist()
 
-    val weightSum = weightedTemps
-      .aggregate(0.0)((acc, wTemp) => acc + wTemp._1, _+_)
+    def distTemp: Ordering[(Double, Temperature)] = Ordering[Double].on(_._1)
+    val minDistTemp = distTemps.min()(distTemp)
 
-    if(weightSum != 0)
-      weightedTemps
-        .aggregate(0.0)((acc, wTemp) => acc + wTemp._1 * wTemp._2,_+_) / weightSum
-    else 0
+    if (minDistTemp._1 < 1000)
+      minDistTemp._2
+    else {
+      val weightTemps = distTemps
+        .map(distTemp => (pow(1 / distTemp._1, p), distTemp._2))
+        .persist()
+      val weightSum = weightTemps
+        .aggregate(0.0)((acc, wTemp) => acc + wTemp._1, _+_)
+      if(weightSum != 0)
+        weightTemps
+          .aggregate(0.0)((acc, wTemp) => acc + wTemp._1 * wTemp._2,_+_) / weightSum
+      else 0
+    }
   }
 
   // https://en.wikipedia.org/wiki/Great-circle_distance
   def circleDist(p: Location, q: Location): Double = {
+
+    def areAntipodes(p: Location, q: Location) : Boolean =
+      p.latRad == -q.latRad &&
+        (p.lonRad == (q.lonRad - PI) || p.lonRad == (q.lonRad + PI))
+
     val centralAngle =
       if (p == q) 0
-      else if (p.latRad == q.latRad || p.lonRad == q.lonRad) Math.PI
-      else acos(sin(p.latRad)*sin(q.latRad) + cos(p.latRad)*cos(q.latRad) + abs(p.lonRad - q.lonRad))
+      else if (areAntipodes(p,q)) PI
+      else acos(sin(p.latRad)*sin(q.latRad) + cos(p.latRad)*cos(q.latRad)*cos(abs(p.lonRad - q.lonRad)))
     earthRadiusMeters*centralAngle
   }
-
 
   /**
     * @param points Pairs containing a value and its associated color
@@ -98,8 +113,6 @@ object Visualization {
     }
   }
 
-
-
   /**
     * @param temperatures Known temperatures
     * @param colors Color scale
@@ -109,13 +122,24 @@ object Visualization {
     def gpsImageOrdering: Ordering[(Location, _)] =
       Ordering[(Double, Double)].on((t: (Location, _)) => (-t._1.lat, t._1.lon))
 
-     val pixels : Array[Pixel] = temperatures
-      .par
+     val pixels : Array[Pixel] =
+       interpolateGrid(temperatures).par
         .map( locTemp => (locTemp._1, Pixel(interpolateColor(colors, locTemp._2))))
       .toArray
         .sorted(gpsImageOrdering)
         .map(_._2)
     Image(360, 180, pixels)
+  }
+
+  def interpolateGrid(temperatures: Iterable[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {
+    val temperaturesRdd = sc.parallelize(temperatures.toSeq).persist()
+    for {
+      lat <- -180L to 179L
+      lon <- -89 to 90
+    } yield {
+      val location = Location(lat, lon)
+      (location, predictTemperatureSpark(temperaturesRdd, location))
+    }
   }
 }
 
