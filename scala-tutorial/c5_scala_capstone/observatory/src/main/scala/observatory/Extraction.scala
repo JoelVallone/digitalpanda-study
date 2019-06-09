@@ -6,10 +6,14 @@ import observatory.Main.sc
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 
+import scala.io.Source
+
 /**
   * 1st milestone: data extraction
   */
 object Extraction {
+
+  val workerCount : Int = 4
 
   import org.apache.log4j.{Level, Logger}
   Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
@@ -23,27 +27,56 @@ object Extraction {
   def locateTemperatures(year: Year,
                          stationsFile: String,
                          temperaturesFile: String): Iterable[(LocalDate, Location, Temperature)] = {
-    sparkLocateTemperatures(year, stationsFile, temperaturesFile).collect().seq
+    parLocateTemperatures(year, stationsFile, temperaturesFile)
+    //sparkLocateTemperatures(year, stationsFile, temperaturesFile).collect().seq
+  }
+
+  def parLocateTemperatures(year: Year,
+                            stationsFile: String,
+                            temperaturesFile: String): Iterable[(LocalDate, Location, Temperature)] = {
+
+    val stations = parLoadStations(stationsFile)
+    val temperatures = parLoadTemperatures(temperaturesFile, year)
+
+    temperatures.par
+      .flatMap( locTemps => {
+        val locOpt = stations.get(locTemps._1)
+        if (locOpt.isDefined) locTemps._2.map( locTemp =>  (locTemp._1, locOpt.get, locTemp._2)).toList else Nil
+      }).seq
   }
 
   def sparkLocateTemperatures(year: Year,
                               stationsFile: String,
                               temperaturesFile: String): RDD[(LocalDate, Location, Temperature)] = {
 
-    val stations = loadStations(stationsFile)
-    val temperatures = loadTemperatures(temperaturesFile, year)
+    val stations = sparkLoadStations(stationsFile)
+    val temperatures = sparkLoadTemperatures(temperaturesFile, year)
 
+    /*
+    val stationCol = stations.collect()
+    println(s"stations count : ${stationCol.length}")
+    val temperaturesCol = temperatures.collect()
+    println(s"stations count : ${temperaturesCol.length}")
+*/
     temperatures
       .join(stations)
       .map{ case (_,((date, temp), location)) => (date, location, temp)}
   }
 
-  def loadStations(stationsFile : String): RDD[((String, String), Location)] =
+
+  def parLoadStations(stationsFile: String): Map[(String, String), Location] =
+    Source.fromFile(Extraction.getClass.getResource(stationsFile).getPath).getLines.toArray.par
+      .map(parseStationRow)
+      .filter(c => c.isDefined)
+      .map( opt => opt.get._1 -> opt.get._2)
+      .toMap.seq
+
+  def sparkLoadStations(stationsFile : String): RDD[((String, String), Location)] =
     sc.textFile(Extraction.getClass.getResource(stationsFile).getPath)
     .map(parseStationRow)
     .filter(c => c.isDefined)
     .map(_.get)
-    .partitionBy(new HashPartitioner(120))
+    .partitionBy(new HashPartitioner(workerCount))
     .persist()
 
   def parseStationRow(row: String): Option[((String, String), Location)] = {
@@ -61,12 +94,20 @@ object Extraction {
       None
   }
 
-  def loadTemperatures(temperaturesFile : String, year: Year): RDD[((String, String), (LocalDate, Temperature))] =
+  def parLoadTemperatures(temperaturesFile: String, year: Year): Map[(String, String), Iterable[(LocalDate, Temperature)]] =
+    Source.fromFile(Extraction.getClass.getResource(temperaturesFile).getPath).getLines.toArray
+      .map(parseTemperatureRow(year))
+      .filter(c => c.isDefined)
+      .map( opt => opt.get._1 -> opt.get._2)
+      .groupBy(_._1)
+      .mapValues( v => v.map(_._2))
+
+  def sparkLoadTemperatures(temperaturesFile : String, year: Year): RDD[((String, String), (LocalDate, Temperature))] =
       sc.textFile(Extraction.getClass.getResource(temperaturesFile).getPath)
         .map(parseTemperatureRow(year))
         .filter(c => c.isDefined)
         .map(_.get)
-        .partitionBy(new HashPartitioner(120))
+        .partitionBy(new HashPartitioner(1))
 
   def toCelsius(temperature: Temperature) : Double  = (temperature - 32.0) * 5.0/9.0
 
@@ -99,13 +140,26 @@ object Extraction {
     * @param records A sequence containing triplets (date, location, temperature)
     * @return A sequence containing, for each location, the average temperature over the year.
     */
-  def locationYearlyAverageRecords(records: Iterable[(LocalDate, Location, Temperature)]): Iterable[(Location, Temperature)] =
-    sparkAverageRecords(sc.parallelize(records.toSeq)).collect().toSeq
+  def locationYearlyAverageRecords(records: Iterable[(LocalDate, Location, Temperature)]): Iterable[(Location, Temperature)] = {
+    parLocationYearlyAverageRecords(records)
+    //sparkLocationYearlyAverageRecords(sc.parallelize(records.toSeq)).collect().toSeq
+  }
 
-  def sparkAverageRecords(records: RDD[(LocalDate, Location, Temperature)]): RDD[(Location, Temperature)] = {
+  def parLocationYearlyAverageRecords(records: Iterable[(LocalDate, Location, Temperature)]): Iterable[(Location, Temperature)] =
+    records.par
+      .map{ case (_, location, temp) => (location, (temp, 1))}
+      .groupBy(_._1)
+      .mapValues( gpsTemps => {
+        val (temp, count) = gpsTemps
+          .map(_._2)
+          .reduce((t1, t2) => (t1._1+t2._1, t1._2+t2._2))
+        if (count != 0) temp / count else 0
+      }).toList
+
+  def sparkLocationYearlyAverageRecords(records: RDD[(LocalDate, Location, Temperature)]): RDD[(Location, Temperature)] = {
     records
       .map{ case (_, location, temp) => (location, (temp, 1))}
-      .partitionBy(new HashPartitioner(120))
+      .partitionBy(new HashPartitioner(workerCount))
       .reduceByKey { case ((t1,c1), (t2,c2)) => (t1+t2, c1+c2)}
       .mapValues{case (temp, count) => if (count != 0) temp / count else 0}
   }

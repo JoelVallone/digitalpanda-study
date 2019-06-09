@@ -20,12 +20,12 @@ trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
   val colors: Iterable[(Temperature, Color)] = Seq(
     (60,  Color(255,  255,  255)),
     (32,  Color(255,  0,    0)),
-    (12,  Color(255,  255,  0)),
-    (-15,	Color(0,    0,    255)),
     (0,   Color(0,    255,  255)),
+    (-15,	Color(0,    0,    255)),
     (-27,	Color(255,  0,    255)),
-    (-60,	Color(0,    0,    0)),
-    (-50,	Color(33,   0,    107))
+    (12,  Color(255,  255,  0)),
+    (-60,	Color(0,    0,    107)),
+    (-50,	Color(33,   0,    0))
   )
 
   test("'interpolateColor' - correctness") {
@@ -36,15 +36,17 @@ trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
     // > Beyond highest
     assert(interpolateColor(colors, 70)   === Color(255,  255,  255))
     // > Bellow lowest
-    assert(interpolateColor(colors, -800) === Color(0,    0,    0))
+    assert(interpolateColor(colors, -800) === Color(0,    0,    107))
     // > Exact match positive
     assert(interpolateColor(colors, 32)   === Color(255,  0,    0))
     // > Exact match zero
     assert(interpolateColor(colors, 0)    === Color(0,    255,  255))
-    // > Interpolate positive
+    // > Interpolate positive half
     assert(interpolateColor(colors, 22)   === Color(255,  128,  0))
-    // > Interpolate negative
+    // > Interpolate negative half
     assert(interpolateColor(colors, -55)  === Color(17,   0,    54))
+    // > Interpolate negative
+    assert(interpolateColor(colors, -59)  === Color(3,   0,    96))
   }
 
 
@@ -105,8 +107,8 @@ trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
   def gridTemperatures(dropCount: Int, tempMap: Location => Temperature): IndexedSeq[(Location, Temperature)] =
     Random.shuffle(
       for {
-        lat <- -180L to 179L
-        lon <- -89 to 90
+        lat <- -89L to 90L
+        lon <- -180L to 179L
       } yield {
         val location = Location(lat, lon)
         (location, tempMap(location))

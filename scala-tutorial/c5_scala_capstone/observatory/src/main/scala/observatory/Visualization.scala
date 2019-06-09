@@ -3,7 +3,7 @@ package observatory
 import java.lang.Math._
 
 import com.sksamuel.scrimage.{Image, Pixel}
-import observatory.Main.sc
+import observatory.Main.{sc}
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 
@@ -12,8 +12,10 @@ import org.apache.spark.rdd.RDD
   */
 object Visualization {
 
+  val workerCount : Int = 4
+
   import org.apache.log4j.{Level, Logger}
-  //Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
+  Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
 
   val p = 2.0
   val earthRadiusMeters = 6371000.0
@@ -23,8 +25,31 @@ object Visualization {
     * @param location Location where to predict the temperature
     * @return The predicted temperature at `location`
     */
-  def predictTemperature(temperatures: Iterable[(Location, Temperature)], location: Location): Temperature = {
-    predictTemperatureSpark(sc.parallelize(temperatures.toSeq), location)
+  def predictTemperature(temperatures: Iterable[(Location, Temperature)], targetLocation: Location): Temperature = {
+    //predictTemperatureSpark(sc.parallelize(temperatures.toSeq), location)
+    predictTemperaturePar(temperatures, targetLocation)
+  }
+
+  def predictTemperaturePar(temperatures: Iterable[(Location, Temperature)], targetLocation: Location): Temperature = {
+    val distTemps = temperatures.par
+      .map {case (location, temperature) => (circleDist(location, targetLocation), temperature)}
+
+    def distTemp: Ordering[(Double, Temperature)] = Ordering[Double].on(_._1)
+    val minDistTemp = distTemps.min(distTemp)
+
+    if (minDistTemp._1 < 1000)
+      minDistTemp._2
+    else {
+      val weightTemps = distTemps
+        .map(distTemp => (pow(1 / distTemp._1, p), distTemp._2))
+        .par
+      val weightSum = weightTemps
+        .aggregate(0.0)((acc, wTemp) => acc + wTemp._1, _+_)
+      if(weightSum != 0)
+        weightTemps
+          .aggregate(0.0)((acc, wTemp) => acc + wTemp._1 * wTemp._2,_+_) / weightSum
+      else 0
+    }
   }
 
   // https://en.wikipedia.org/wiki/Inverse_distance_weighting
@@ -52,7 +77,6 @@ object Visualization {
 
   // https://en.wikipedia.org/wiki/Great-circle_distance
   def circleDist(p: Location, q: Location): Double = {
-
     def areAntipodes(p: Location, q: Location) : Boolean =
       p.latRad == -q.latRad &&
         (p.lonRad == (q.lonRad - PI) || p.lonRad == (q.lonRad + PI))
@@ -89,9 +113,12 @@ object Visualization {
   }
 
   // O(N)... :-/
-  def findLowUp(points: Iterable[(Temperature, Color)], value: Temperature,
-                lowBnd: (Temperature, Color), upBnd: (Temperature, Color),
-                min: (Temperature, Color), max: (Temperature, Color)): ((Temperature, Color),(Temperature, Color)) = {
+  def findLowUp(points: Iterable[(Temperature, Color)],
+                value: Temperature,
+                lowBnd: (Temperature, Color),
+                upBnd: (Temperature, Color),
+                min: (Temperature, Color),
+                max: (Temperature, Color)): ((Temperature, Color),(Temperature, Color)) = {
 
     def nearestBound(delta: ((Temperature, Color),Temperature) => Temperature)
                     (cur:  (Temperature, Color), cand:  (Temperature, Color), t: Temperature): (Temperature, Color) = {
@@ -105,9 +132,12 @@ object Visualization {
     else {
       val cand = points.head
       findLowUp(
-        points.tail, value,
-        nearestBound(-_._1 + _)(lowBnd, cand, value),   nearestBound(_._1 - _)(upBnd, cand, value),
-        if(cand._1 < min._1) cand else min,             if(cand._1 > max._1) cand else max
+        points.tail,
+        value,
+        nearestBound(-_._1 + _)(lowBnd, cand, value),
+        nearestBound(_._1 - _)(upBnd, cand, value),
+        if(cand._1 <= min._1) cand else min,
+        if(cand._1 >= max._1) cand else max
       )
     }
   }
@@ -118,7 +148,8 @@ object Visualization {
     * @return A 360×180 image where each pixel shows the predicted temperature at its location
     */
   def visualize(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
-    visualizeRaw(interpolateGrid(temperatures), colors)
+    //visualizeRaw(sparkInterpolateGrid(temperatures), colors)
+    visualizeRaw(parInterpolateGrid(temperatures), colors)
   }
 
   def visualizeRaw(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
@@ -133,15 +164,35 @@ object Visualization {
     Image(360, 180, pixels)
   }
 
-  def interpolateGrid(temperatures: Iterable[(Location, Temperature)]) : Iterable[(Location, Temperature)] =
-    sparkInterpolateGrid(sc.parallelize(temperatures.toSeq).persist())
+  def parInterpolateGrid(temperatures: Iterable[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {
+    val partialGrid = temperatures.par
+      .map(gpsTem => (gpsTem._1.rounded, (gpsTem._2, 1)))
+      .groupBy(_._1)
+      .mapValues( gpsTemps => {
+        val (temp, count) = gpsTemps
+          .map(_._2)
+          .reduce((t1, t2) => (t1._1+t2._1, t1._2+t2._2))
+        if (count != 0) temp / count else 0
+       }
+      ).toMap.par
+      .withDefault(loc => predictTemperaturePar(temperatures, loc))
+
+    (for {
+      lat <- -89L to 90L
+      lon <- -180L to 179L
+    } yield {
+      val location = Location(lat, lon)
+      (location, partialGrid(location))
+    }).toList
+
+  }
 
   def sparkInterpolateGrid(temperatures: RDD[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {
 
     val partialGrid : Map[Location, Temperature] =
       temperatures
         .map(gpsTem => (gpsTem._1.rounded, (gpsTem._2, 1)))
-        .partitionBy(new HashPartitioner(360))
+        .partitionBy(new HashPartitioner(workerCount))
         .reduceByKey { case ((t1,c1), (t2,c2)) => (t1+t2, c1+c2)}
         .mapValues{case (temp, count) => if (count != 0) temp / count else 0}
       .collect()
@@ -150,8 +201,8 @@ object Visualization {
         .withDefault(loc => predictTemperatureSpark(temperatures, loc))
 
     (for {
-      lat <- -180L to 179L
-      lon <- -89L to 90L
+      lat <- -89L to 90L
+      lon <- -180L to 179L
     } yield {
       val location = Location(lat, lon)
       (location, partialGrid(location))
