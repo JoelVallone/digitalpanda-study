@@ -8,6 +8,8 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.prop.Checkers
 
+import scala.util.Random
+
 @RunWith(classOf[JUnitRunner])
 trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
 
@@ -15,32 +17,34 @@ trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
     sc.stop()
   }
 
+  val colors: Iterable[(Temperature, Color)] = Seq(
+    (60,  Color(255,  255,  255)),
+    (32,  Color(255,  0,    0)),
+    (12,  Color(255,  255,  0)),
+    (-15,	Color(0,    0,    255)),
+    (0,   Color(0,    255,  255)),
+    (-27,	Color(255,  0,    255)),
+    (-60,	Color(0,    0,    0)),
+    (-50,	Color(33,   0,    107))
+  )
+
   test("'interpolateColor' - correctness") {
     // Given
-    val points: Iterable[(Temperature, Color)] = Seq(
-      (60,  Color(255,  255,  255)),
-      (32,  Color(255,  0,    0)),
-      (12,  Color(255,  255,  0)),
-      (-15,	Color(0,    0,    255)),
-      (0,   Color(0,    255,  255)),
-      (-27,	Color(255,  0,    255)),
-      (-60,	Color(0,    0,    0)),
-      (-50,	Color(33,   0,    107))
-    )
+    // ... points
 
     // When, Then:
     // > Beyond highest
-    assert(interpolateColor(points, 70)   === Color(255,  255,  255))
+    assert(interpolateColor(colors, 70)   === Color(255,  255,  255))
     // > Bellow lowest
-    assert(interpolateColor(points, -800) === Color(0,    0,    0))
+    assert(interpolateColor(colors, -800) === Color(0,    0,    0))
     // > Exact match positive
-    assert(interpolateColor(points, 32)   === Color(255,  0,    0))
+    assert(interpolateColor(colors, 32)   === Color(255,  0,    0))
     // > Exact match zero
-    assert(interpolateColor(points, 0)    === Color(0,    255,  255))
+    assert(interpolateColor(colors, 0)    === Color(0,    255,  255))
     // > Interpolate positive
-    assert(interpolateColor(points, 22)   === Color(255,  128,  0))
+    assert(interpolateColor(colors, 22)   === Color(255,  128,  0))
     // > Interpolate negative
-    assert(interpolateColor(points, -55)  === Color(17,   0,    54))
+    assert(interpolateColor(colors, -55)  === Color(17,   0,    54))
   }
 
 
@@ -80,27 +84,33 @@ trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
 
   test("'predictTemperature' - visualize") {
     // Given
-    val partialTemperatures =
-      gridTemperatures(2, 30.0) ::: gridTemperatures(4, 0.0)
-
-
-    val actual =
-      gridTemperatures(1, 20.0)
+    val partialTemperatures = gridTemperatures(10, _ => 30.0)
 
     // When
-    //visualize(partialTemperatures)
+    val actual = visualize(partialTemperatures, colors)
+    actual.output(new java.io.File(s"test-visualize.png"))
+  /*
+    actual.foreach((x, y, pixel) => {
+      val isCorrectColor =  pixel.red == 255 && pixel.green == 25 && pixel.blue == 0 && pixel.alpha == 255
+      if (!isCorrectColor) {println(s"${(x, y, pixel.toColor)}")}
+      isCorrectColor
+    })
+  */
 
     // Then
+    assert(actual.forall((_, _, pixel) =>
+      pixel.red == 255 && (pixel.green == 25 || pixel.green == 26) && pixel.blue == 0 && pixel.alpha == 255) === true)
   }
 
-  def gridTemperatures(step: Int, temperature: Temperature): List[(Location, Temperature)] =
-    (
+  def gridTemperatures(dropCount: Int, tempMap: Location => Temperature): IndexedSeq[(Location, Temperature)] =
+    Random.shuffle(
       for {
-          lat <- -180L to 179L by step
-          lon <- -89 to 90 by step
+        lat <- -180L to 179L
+        lon <- -89 to 90
       } yield {
-        (Location(lat, lon), temperature * (lat / 180.0 - lon / 90.0))
+        val location = Location(lat, lon)
+        (location, tempMap(location))
       }
-    ).toList
+    ).drop(dropCount)
 
 }

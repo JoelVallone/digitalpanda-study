@@ -106,7 +106,6 @@ object Extraction {
     records
       .map{ case (_, location, temp) => (location, (temp, 1))}
       .partitionBy(new HashPartitioner(120))
-      .persist()
       .reduceByKey { case ((t1,c1), (t2,c2)) => (t1+t2, c1+c2)}
       .mapValues{case (temp, count) => if (count != 0) temp / count else 0}
   }

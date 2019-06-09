@@ -13,7 +13,7 @@ import org.apache.spark.rdd.RDD
 object Visualization {
 
   import org.apache.log4j.{Level, Logger}
-  Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
+  //Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
 
   val p = 2.0
   val earthRadiusMeters = 6371000.0
@@ -41,7 +41,6 @@ object Visualization {
     else {
       val weightTemps = distTemps
         .map(distTemp => (pow(1 / distTemp._1, p), distTemp._2))
-        .persist()
       val weightSum = weightTemps
         .aggregate(0.0)((acc, wTemp) => acc + wTemp._1, _+_)
       if(weightSum != 0)
@@ -119,27 +118,44 @@ object Visualization {
     * @return A 360×180 image where each pixel shows the predicted temperature at its location
     */
   def visualize(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
+    visualizeRaw(interpolateGrid(temperatures), colors)
+  }
+
+  def visualizeRaw(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
     def gpsImageOrdering: Ordering[(Location, _)] =
       Ordering[(Double, Double)].on((t: (Location, _)) => (-t._1.lat, t._1.lon))
-
-     val pixels : Array[Pixel] =
-       interpolateGrid(temperatures).par
+    val pixels : Array[Pixel] =
+      temperatures.par
         .map( locTemp => (locTemp._1, Pixel(interpolateColor(colors, locTemp._2))))
-      .toArray
+        .toArray
         .sorted(gpsImageOrdering)
         .map(_._2)
     Image(360, 180, pixels)
   }
 
-  def interpolateGrid(temperatures: Iterable[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {
-    val temperaturesRdd = sc.parallelize(temperatures.toSeq).persist()
-    for {
+  def interpolateGrid(temperatures: Iterable[(Location, Temperature)]) : Iterable[(Location, Temperature)] =
+    sparkInterpolateGrid(sc.parallelize(temperatures.toSeq).persist())
+
+  def sparkInterpolateGrid(temperatures: RDD[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {
+
+    val partialGrid : Map[Location, Temperature] =
+      temperatures
+        .map(gpsTem => (gpsTem._1.rounded, (gpsTem._2, 1)))
+        .partitionBy(new HashPartitioner(360))
+        .reduceByKey { case ((t1,c1), (t2,c2)) => (t1+t2, c1+c2)}
+        .mapValues{case (temp, count) => if (count != 0) temp / count else 0}
+      .collect()
+        .map(t => t._1 -> t._2)
+        .toMap
+        .withDefault(loc => predictTemperatureSpark(temperatures, loc))
+
+    (for {
       lat <- -180L to 179L
-      lon <- -89 to 90
+      lon <- -89L to 90L
     } yield {
       val location = Location(lat, lon)
-      (location, predictTemperatureSpark(temperaturesRdd, location))
-    }
+      (location, partialGrid(location))
+    }).toList
   }
 }
 
