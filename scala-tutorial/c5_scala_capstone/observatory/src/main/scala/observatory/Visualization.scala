@@ -17,7 +17,7 @@ object Visualization {
   import org.apache.log4j.{Level, Logger}
   Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
 
-  val p = 2.0
+  val p = 6.0
   val earthRadiusMeters = 6371000.0
 
   /**interpolateColor
