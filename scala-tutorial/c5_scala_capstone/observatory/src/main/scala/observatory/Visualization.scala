@@ -3,16 +3,19 @@ package observatory
 import java.lang.Math._
 
 import com.sksamuel.scrimage.{Image, Pixel}
-import observatory.Main.{sc}
+import observatory.Main.sc
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
+
+import scala.collection.immutable.NumericRange
+import scala.collection.mutable
 
 /**
   * 2nd milestone: basic visualization
   */
 object Visualization {
 
-  val workerCount : Int = 4
+  val workerCount : Int = 2
 
   import org.apache.log4j.{Level, Logger}
   Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
@@ -166,16 +169,10 @@ object Visualization {
 
   def parInterpolateGrid(temperatures: Iterable[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {
     val partialGrid = temperatures.par
-      .map(gpsTem => (gpsTem._1.rounded, (gpsTem._2, 1)))
+      .map(gpsTem => (gpsTem._1.rounded, gpsTem._2))
       .groupBy(_._1)
-      .mapValues( gpsTemps => {
-        val (temp, count) = gpsTemps
-          .map(_._2)
-          .reduce((t1, t2) => (t1._1+t2._1, t1._2+t2._2))
-        if (count != 0) temp / count else 0
-       }
-      ).toMap.par
-      .withDefault(loc => predictTemperaturePar(temperatures, loc))
+      .map(g => (g._1, predictTemperaturePar(g._2.seq, g._1))).seq
+      .withDefault(loc => predictTemperaturePar(kNearest(temperatures, loc, 20), loc))
 
     (for {
       lat <- -89L to 90L
@@ -185,6 +182,13 @@ object Visualization {
       (location, partialGrid(location))
     }).toList
 
+  }
+
+  def kNearest(temperatures: Iterable[(Location, Temperature)], point : Location, k : Int) : Iterable[(Location, Temperature)] = {
+    def pointCenteredMinOrdering: Ordering[(Location, Temperature)] =
+      Ordering[Double].on((q: (Location, Temperature)) => -circleDist(point, q._1))
+    temperatures
+    //(mutable.PriorityQueue.empty(pointCenteredMinOrdering) ++= temperatures).take(k)
   }
 
   def sparkInterpolateGrid(temperatures: RDD[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {

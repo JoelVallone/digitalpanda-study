@@ -16,7 +16,7 @@ object Main extends App {
   @transient lazy val conf: SparkConf = new SparkConf()
   .setMaster(s"local")
   .setAppName("StackOverflow")
-  //.set("spark.driver.bindAddress", "127.0.0.1")
+  .set("spark.driver.bindAddress", "127.0.0.1")
 
   @transient lazy val sc: SparkContext = new SparkContext(conf)
 
@@ -60,7 +60,7 @@ object Main extends App {
     println(s" -> Full grid - done in ${System.currentTimeMillis() - startMillis} [ms]")
 
     visualizeRaw(fullGrid, colors).output(new java.io.File(s"$year.png"))
-    println(s"Temperature image parallel $year - end : ")
+    println(s"Temperature image parallel $year - end : ${Calendar.getInstance().getTime()}")
     println(s" => Duration ${System.currentTimeMillis() - startMillis} [ms]")
   }
 
