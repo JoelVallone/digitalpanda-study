@@ -32,18 +32,13 @@ object Interaction {
     *                      y coordinates of the tile and the data to build the image from
     */
   def generateTiles[Data]( yearlyData: Iterable[(Year, Data)], generateImage: (Year, Tile, Data) => Unit ): Unit =
-    for (
+    (for (
       (year, data) <- yearlyData;
-      zoomLevel <- 0 to 3;
-      tile <- tilesForZoomLevel(zoomLevel)
-    ) generateImage(year, tile, data)
+      zoom <- 0 to 3;
+      x <- 0 until (1 << zoom);
+      y <- 0 until (1 << zoom)
+    ) yield (year, data, Tile(x, y , zoom))).toList.par
 
-  def tilesForZoomLevel(zoomLevel: Int): Iterable[Tile] = {
-    def tileForZoomLevel(zoom : Int, tileId: Int): Tile = {
-      ???
-    }
-    for (
-      tileId <- 0 to (1 << (zoomLevel << 1))
-    ) yield tileForZoomLevel(zoomLevel, tileId)
-  }
+      //TODO: Implement image up-scaling
+    .foreach(d => generateImage(d._1, d._2, d._3))
 }

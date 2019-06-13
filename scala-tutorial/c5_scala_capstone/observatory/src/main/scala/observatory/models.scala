@@ -16,9 +16,11 @@ case class Location(lat: Double, lon: Double) {
   lazy val lonRad : Double = toRadians(lon)
   lazy val rounded : Location = Location(round(lat), round(lon))
 
+  // https://en.wikipedia.org/wiki/Antipodes#Mathematical_description
   def atAntipodesWith(q: Location): Boolean =
     latRad == -q.latRad && (lonRad == (q.lonRad - Pi) || lonRad == (q.lonRad + Pi))
 
+  // https://en.wikipedia.org/wiki/Great-circle_distance
   def circleDist(q: Location): Double = {
     val centralAngle =
       if (this == q) 0
@@ -37,9 +39,12 @@ case class Location(lat: Double, lon: Double) {
   * @param zoom Zoom level, 0 ≤ zoom ≤ 19
   */
 case class Tile(x: Int, y: Int, zoom: Int) {
+  // wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Mathematics
   def location: Location =  Location(
         toDegrees(atan(sinh(Pi * (1.0 - 2.0 * y.toDouble / (1 << zoom))))),
         x.toDouble / (1 << zoom) * 360.0 - 180.0)
+
+  def subtile(zoomDepth: Int) : Iterable[Tile]  = ???
 }
 
 /**

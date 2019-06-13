@@ -30,7 +30,6 @@ object Visualization {
     predictTemperaturePar(temperatures.par, targetLocation)
   }
 
-  // Base case : Full grid - done in 179958 [ms]
   def predictTemperaturePar(temperatures: parallel.ParIterable[(Location, Temperature)], targetLocation: Location): Temperature = {
     val distTemps = temperatures
       .map {case (location, temperature) => (location circleDist targetLocation, temperature)}
@@ -74,9 +73,6 @@ object Visualization {
       else 0
     }
   }
-
-  // https://en.wikipedia.org/wiki/Great-circle_distance
-
 
   /**
     * @param points Pairs containing a value and its associated color
