@@ -56,7 +56,7 @@ object Main extends App {
     val locatedAverages = locationYearlyAverageRecords(parsedMeasures)
     println(s" -> Located averages - done in ${System.currentTimeMillis() - startMillis} [ms]")
 
-    val fullGrid = parInterpolateGrid(locatedAverages)
+    val fullGrid = parInterpolateGrid(locatedAverages.par)
     println(s" -> Full grid - done in ${System.currentTimeMillis() - startMillis} [ms]")
 
     visualizeRaw(fullGrid, colors).output(new java.io.File(s"$year.png"))

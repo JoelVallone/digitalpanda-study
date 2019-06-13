@@ -1,14 +1,11 @@
 package observatory
 
-import java.lang.Math._
 
 import com.sksamuel.scrimage.{Image, Pixel}
-import observatory.Main.sc
-import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 
-import scala.collection.immutable.NumericRange
-import scala.collection.mutable
+import scala.collection.parallel
+import scala.math.{abs, pow, round}
 
 /**
   * 2nd milestone: basic visualization
@@ -30,27 +27,27 @@ object Visualization {
     */
   def predictTemperature(temperatures: Iterable[(Location, Temperature)], targetLocation: Location): Temperature = {
     //predictTemperatureSpark(sc.parallelize(temperatures.toSeq), location)
-    predictTemperaturePar(temperatures, targetLocation)
+    predictTemperaturePar(temperatures.par, targetLocation)
   }
 
-  def predictTemperaturePar(temperatures: Iterable[(Location, Temperature)], targetLocation: Location): Temperature = {
-    val distTemps = temperatures.par
-      .map {case (location, temperature) => (circleDist(location, targetLocation), temperature)}
+  // Base case : Full grid - done in 179958 [ms]
+  def predictTemperaturePar(temperatures: parallel.ParIterable[(Location, Temperature)], targetLocation: Location): Temperature = {
+    val distTemps = temperatures
+      .map {case (location, temperature) => (location circleDist targetLocation, temperature)}
 
     def distTemp: Ordering[(Double, Temperature)] = Ordering[Double].on(_._1)
     val minDistTemp = distTemps.min(distTemp)
 
-    if (minDistTemp._1 < 1000)
+    if (minDistTemp._1 < 1000.0)
       minDistTemp._2
     else {
       val weightTemps = distTemps
         .map(distTemp => (pow(1 / distTemp._1, p), distTemp._2))
-        .par
       val weightSum = weightTemps
         .aggregate(0.0)((acc, wTemp) => acc + wTemp._1, _+_)
       if(weightSum != 0)
         weightTemps
-          .aggregate(0.0)((acc, wTemp) => acc + wTemp._1 * wTemp._2,_+_) / weightSum
+          .aggregate(0.0)((acc, wTemp) => acc + wTemp._1 * wTemp._2, _+_) / weightSum
       else 0
     }
   }
@@ -58,7 +55,7 @@ object Visualization {
   // https://en.wikipedia.org/wiki/Inverse_distance_weighting
   def predictTemperatureSpark(temperatures: RDD[(Location, Temperature)], targetLocation: Location): Temperature = {
     val distTemps = temperatures
-      .map {case (location, temperature) => (circleDist(location, targetLocation), temperature)}
+      .map {case (location, temperature) => (location circleDist targetLocation , temperature)}
       .persist()
 
     def distTemp: Ordering[(Double, Temperature)] = Ordering[Double].on(_._1)
@@ -79,17 +76,7 @@ object Visualization {
   }
 
   // https://en.wikipedia.org/wiki/Great-circle_distance
-  def circleDist(p: Location, q: Location): Double = {
-    def areAntipodes(p: Location, q: Location) : Boolean =
-      p.latRad == -q.latRad &&
-        (p.lonRad == (q.lonRad - PI) || p.lonRad == (q.lonRad + PI))
 
-    val centralAngle =
-      if (p == q) 0
-      else if (areAntipodes(p,q)) PI
-      else acos(sin(p.latRad)*sin(q.latRad) + cos(p.latRad)*cos(q.latRad)*cos(abs(p.lonRad - q.lonRad)))
-    earthRadiusMeters*centralAngle
-  }
 
   /**
     * @param points Pairs containing a value and its associated color
@@ -152,7 +139,7 @@ object Visualization {
     */
   def visualize(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
     //visualizeRaw(sparkInterpolateGrid(temperatures), colors)
-    visualizeRaw(parInterpolateGrid(temperatures), colors)
+    visualizeRaw(parInterpolateGrid(temperatures.par), colors)
   }
 
   def visualizeRaw(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
@@ -167,50 +154,19 @@ object Visualization {
     Image(360, 180, pixels)
   }
 
-  def parInterpolateGrid(temperatures: Iterable[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {
-    val partialGrid = temperatures.par
-      .map(gpsTem => (gpsTem._1.rounded, gpsTem._2))
-      .groupBy(_._1)
-      .map(g => (g._1, predictTemperaturePar(g._2.seq, g._1))).seq
-      .withDefault(loc => predictTemperaturePar(kNearest(temperatures, loc, 20), loc))
-
+  def parInterpolateGrid(temperatures: parallel.ParIterable[(Location, Temperature)]) : Iterable[(Location, Temperature)] =
     (for {
       lat <- -89L to 90L
       lon <- -180L to 179L
-    } yield {
-      val location = Location(lat, lon)
-      (location, partialGrid(location))
-    }).toList
-
-  }
-
-  def kNearest(temperatures: Iterable[(Location, Temperature)], point : Location, k : Int) : Iterable[(Location, Temperature)] = {
-    def pointCenteredMinOrdering: Ordering[(Location, Temperature)] =
-      Ordering[Double].on((q: (Location, Temperature)) => -circleDist(point, q._1))
-    temperatures
-    //(mutable.PriorityQueue.empty(pointCenteredMinOrdering) ++= temperatures).take(k)
-  }
+    } yield Location(lat, lon)).toList.par
+    .map(location => (location, predictTemperaturePar(temperatures,location))).seq
 
   def sparkInterpolateGrid(temperatures: RDD[(Location, Temperature)]) : Iterable[(Location, Temperature)] = {
-
-    val partialGrid : Map[Location, Temperature] =
-      temperatures
-        .map(gpsTem => (gpsTem._1.rounded, (gpsTem._2, 1)))
-        .partitionBy(new HashPartitioner(workerCount))
-        .reduceByKey { case ((t1,c1), (t2,c2)) => (t1+t2, c1+c2)}
-        .mapValues{case (temp, count) => if (count != 0) temp / count else 0}
-      .collect()
-        .map(t => t._1 -> t._2)
-        .toMap
-        .withDefault(loc => predictTemperatureSpark(temperatures, loc))
-
     (for {
       lat <- -89L to 90L
       lon <- -180L to 179L
-    } yield {
-      val location = Location(lat, lon)
-      (location, partialGrid(location))
-    }).toList
+    } yield Location(lat, lon)).toList.par
+      .map(location => (location, predictTemperatureSpark(temperatures,location))).seq
   }
 }
 

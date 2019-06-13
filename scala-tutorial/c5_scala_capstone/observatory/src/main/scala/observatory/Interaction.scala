@@ -1,6 +1,6 @@
 package observatory
 
-import com.sksamuel.scrimage.{Image, Pixel}
+import com.sksamuel.scrimage.Image
 
 /**
   * 3rd milestone: interactive visualization
@@ -11,7 +11,7 @@ object Interaction {
     * @param tile Tile coordinates
     * @return The latitude and longitude of the top-left corner of the tile, as per http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
     */
-  def tileLocation(tile: Tile): Location = tile.toLocation
+  def tileLocation(tile: Tile): Location = tile.location
 
   /**
     * @param temperatures Known temperatures
@@ -31,10 +31,7 @@ object Interaction {
     * @param generateImage Function that generates an image given a year, a zoom level, the x and
     *                      y coordinates of the tile and the data to build the image from
     */
-  def generateTiles[Data](
-    yearlyData: Iterable[(Year, Data)],
-    generateImage: (Year, Tile, Data) => Unit
-  ): Unit =
+  def generateTiles[Data]( yearlyData: Iterable[(Year, Data)], generateImage: (Year, Tile, Data) => Unit ): Unit =
     for (
       (year, data) <- yearlyData;
       zoomLevel <- 0 to 3;
@@ -46,8 +43,7 @@ object Interaction {
       ???
     }
     for (
-      tileId <- 0 to (1 << (zoomLevel << 1));
-      (x,y) <- tileForZoomLevel(zoomLevel, tileId)
-    ) yield Tile(x, y ,zoomLevel)
+      tileId <- 0 to (1 << (zoomLevel << 1))
+    ) yield tileForZoomLevel(zoomLevel, tileId)
   }
 }

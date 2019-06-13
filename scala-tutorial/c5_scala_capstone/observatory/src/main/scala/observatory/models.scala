@@ -1,7 +1,9 @@
 package observatory
 
 import com.sksamuel.scrimage.RGBColor
-import scala.math.{Pi, atan, round, sinh, toDegrees, toRadians}
+import observatory.Visualization.earthRadiusMeters
+
+import scala.math._
 
 /**
   * Introduced in Week 1. Represents a location on the globe.
@@ -9,9 +11,21 @@ import scala.math.{Pi, atan, round, sinh, toDegrees, toRadians}
   * @param lon Degrees of longitude, -180 ≤ lon ≤ 180
   */
 case class Location(lat: Double, lon: Double) {
+
   lazy val latRad : Double = toRadians(lat)
   lazy val lonRad : Double = toRadians(lon)
   lazy val rounded : Location = Location(round(lat), round(lon))
+
+  def atAntipodesWith(q: Location): Boolean =
+    latRad == -q.latRad && (lonRad == (q.lonRad - Pi) || lonRad == (q.lonRad + Pi))
+
+  def circleDist(q: Location): Double = {
+    val centralAngle =
+      if (this == q) 0
+      else if (this atAntipodesWith q) Pi
+      else acos(sin(latRad)*sin(q.latRad) + cos(latRad)*cos(q.latRad)*cos(abs(lonRad - q.lonRad)))
+    earthRadiusMeters * centralAngle
+  }
 }
 
 /**
@@ -23,7 +37,7 @@ case class Location(lat: Double, lon: Double) {
   * @param zoom Zoom level, 0 ≤ zoom ≤ 19
   */
 case class Tile(x: Int, y: Int, zoom: Int) {
-  def toLocation: Location =  Location(
+  def location: Location =  Location(
         toDegrees(atan(sinh(Pi * (1.0 - 2.0 * y.toDouble / (1 << zoom))))),
         x.toDouble / (1 << zoom) * 360.0 - 180.0)
 }
