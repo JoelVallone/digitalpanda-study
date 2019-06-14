@@ -1,6 +1,7 @@
 package observatory
 
-import com.sksamuel.scrimage.Image
+import com.sksamuel.scrimage.{Image, Pixel}
+import observatory.Visualization.{interpolateColor, predictTemperature}
 
 /**
   * 3rd milestone: interactive visualization
@@ -20,23 +21,17 @@ object Interaction {
     * @return A 256×256 image showing the contents of the given tile
     */
   def tile(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)], tile: Tile): Image = {
-    /*
-    def myTileOrdering: Ordering[(Tile, Any)] =
-      Ordering[(Int, Int)].on((t: (Tile, Any)) => (t._1.y, t._1.x))
 
-    val tiledTemperatures: Array[(Location, Pixel)] =
-    tile.subTiles(7).par
-      .map(tile => (tile.location, Pixel(interpolateColor(colors, predictTemperature(temperatures, tile.location)))))
+    def tileOrdering: Ordering[(Tile, Any)] = Ordering[(Int, Int)].on(t => (t._1.y, t._1.x))
+
+    val tiles = tile.subTiles(7)
+    val pixels : Array[Pixel] =  tiles.par
+      .map(tile => (tile, Pixel(interpolateColor(colors, predictTemperature(temperatures, tile.location)))))
       .toArray
+      .sorted(tileOrdering)
+      .map(_._2)
 
-    val pixels : Array[Pixel] =  tiledTemperatures
-          .sorted(myTileOrdering)
-          .map(_._2)
-
-    Image(128, 128, pixels).resize(2)
-    */
-    // TODO: Fix compilation error on Ordering
-    ???
+    Image(128, 128, pixels).scale(2.0)
   }
 
   /**

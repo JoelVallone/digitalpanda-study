@@ -45,13 +45,14 @@ case class Tile(x: Int, y: Int, zoom: Int) {
         toDegrees(atan(sinh(Pi * (1.0 - 2.0 * y.toDouble / (1 << zoom))))),
         x.toDouble / (1 << zoom) * 360.0 - 180.0)
 
-  def subTiles(zoomDepth: Int) : List[Tile]  =
-    if (zoomDepth <= 0)
+  def subTiles(zoomDepth: Int) : List[Tile]  = subTilesZoomDownTo(zoom + zoomDepth)
+
+  private def subTilesZoomDownTo(targetZoom: Int) : List[Tile] =
+    if (zoom  == targetZoom)
         this::Nil
     else
-      Tile(2*x, 2*y    , zoomDepth-1).subTiles(zoomDepth-1) ++ Tile(2*x + 1, 2*y    , zoomDepth-1).subTiles(zoomDepth-1) ++
-      Tile(2*x, 2*y + 1, zoomDepth-1).subTiles(zoomDepth-1) ++ Tile(2*x + 1, 2*y + 1, zoomDepth-1).subTiles(zoomDepth-1)
-
+      Tile(2*x, 2*y    , zoom + 1).subTilesZoomDownTo(targetZoom) ++ Tile(2*x + 1, 2*y    , zoom + 1).subTilesZoomDownTo(targetZoom) ++
+      Tile(2*x, 2*y + 1, zoom + 1).subTilesZoomDownTo(targetZoom) ++ Tile(2*x + 1, 2*y + 1, zoom + 1).subTilesZoomDownTo(targetZoom)
 }
 
 /**
@@ -76,6 +77,6 @@ case class CellPoint(x: Double, y: Double)
   * @param blue Level of blue, 0 ≤ blue ≤ 255
   */
 case class Color(red: Int, green: Int, blue: Int) extends com.sksamuel.scrimage.Color {
-  override def toRGB: RGBColor = RGBColor(red, green, blue, 255)
+  override def toRGB: RGBColor = RGBColor(red, green, blue, 127)
 }
 

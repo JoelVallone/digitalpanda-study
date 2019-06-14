@@ -31,7 +31,11 @@ object Main extends App {
     (-50,	Color(33,   0,    107))
   )
 
-  timedOp("Full image for a year", visualizeYear(2002))
+  //timedOp("Full image for a year", visualizeYear(2002))
+  //timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
+  //timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
+  timedOp("All tiles for all years", saveAllTiles())
+
   def visualizeYear(year: Year) : Unit = {
     val yearData = loadYearAverageData(year)
     val startMillis = System.currentTimeMillis()
@@ -40,10 +44,14 @@ object Main extends App {
 
   }
 
-  //timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
   def saveTileForYear(year: Year, targetTile: Tile) : Unit = {
     val yearData = loadYearAverageData(year)
     saveTileAsImage(year, targetTile, yearData)
+  }
+
+  def saveAllTiles(): Unit = {
+    val yearlyData = (1975 to 2015).toStream.map(year => (year, loadYearAverageData(year)))
+    Interaction.generateTiles(yearlyData, saveTileAsImage)
   }
 
   private def saveTileAsImage(year: Year, t: Tile, locatedAverages: Iterable[(Location, Temperature)]): Unit = {
@@ -54,12 +62,6 @@ object Main extends App {
     val outputDir = new File(s"target/temperatures/$year/${t.zoom}")
     if (!outputDir.exists()) outputDir.mkdirs()
     image.output(new java.io.File(s"$outputDir/${t.x}-${t.y}.png"))
-  }
-
-  //timedOp("All tiles for all years", saveAllTiles())
-  def saveAllTiles(): Unit = {
-    val yearlyData = (1975 to 2015).toStream.map(year => (year, loadYearAverageData(year)))
-    Interaction.generateTiles(yearlyData, saveTileAsImage)
   }
 
   private def loadYearAverageData(year: Year): Iterable[(Location, Temperature)] = {

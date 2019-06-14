@@ -2,17 +2,9 @@ package observatory
 
 import java.time.LocalDate
 
-import observatory.Main.sc
-import org.junit.runner.RunWith
-import org.scalatest.junit.JUnitRunner
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import org.scalatest.FunSuite
 
-@RunWith(classOf[JUnitRunner])
-trait ExtractionTest extends FunSuite  with BeforeAndAfterAll {
-
-  override def afterAll(): Unit = {
-    sc.stop()
-  }
+trait ExtractionTest extends FunSuite {
 
   test("'locateTemperatures' - correctness") {
     // Given
