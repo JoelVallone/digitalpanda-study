@@ -33,8 +33,8 @@ object Main extends App {
 
   //timedOp("Full image for a year", visualizeYear(2002))
   //timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
-  //timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
-  timedOp("All tiles for all years", saveAllTiles())
+  timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
+  //timedOp("All tiles for all years", saveAllTiles())
 
   def visualizeYear(year: Year) : Unit = {
     val yearData = loadYearAverageData(year)
@@ -57,7 +57,7 @@ object Main extends App {
   private def saveTileAsImage(year: Year, t: Tile, locatedAverages: Iterable[(Location, Temperature)]): Unit = {
     val tileStartMillis = System.currentTimeMillis()
     val image = tile(locatedAverages, colors, t)
-    println(s" -> $t as image done in: ${System.currentTimeMillis() - tileStartMillis} [ms]")
+    println(s" -> $t of year $year as image done in: ${System.currentTimeMillis() - tileStartMillis} [ms]")
 
     val outputDir = new File(s"target/temperatures/$year/${t.zoom}")
     if (!outputDir.exists()) outputDir.mkdirs()
@@ -73,7 +73,7 @@ object Main extends App {
 
     startMillis = System.currentTimeMillis()
     val locatedAverages = locationYearlyAverageRecords(parsedMeasures)
-    println(s" -> Located averages done in: ${System.currentTimeMillis() - startMillis} [ms]")
+    println(s" -> Located averages of year $year done in: ${System.currentTimeMillis() - startMillis} [ms]")
 
     locatedAverages
   }
