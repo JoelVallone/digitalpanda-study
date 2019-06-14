@@ -39,12 +39,19 @@ case class Location(lat: Double, lon: Double) {
   * @param zoom Zoom level, 0 ≤ zoom ≤ 19
   */
 case class Tile(x: Int, y: Int, zoom: Int) {
+
   // wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Mathematics
-  def location: Location =  Location(
+  lazy val location: Location =  Location(
         toDegrees(atan(sinh(Pi * (1.0 - 2.0 * y.toDouble / (1 << zoom))))),
         x.toDouble / (1 << zoom) * 360.0 - 180.0)
 
-  def subtile(zoomDepth: Int) : Iterable[Tile]  = ???
+  def subTiles(zoomDepth: Int) : List[Tile]  =
+    if (zoomDepth <= 0)
+        this::Nil
+    else
+      Tile(2*x, 2*y    , zoomDepth-1).subTiles(zoomDepth-1) ++ Tile(2*x + 1, 2*y    , zoomDepth-1).subTiles(zoomDepth-1) ++
+      Tile(2*x, 2*y + 1, zoomDepth-1).subTiles(zoomDepth-1) ++ Tile(2*x + 1, 2*y + 1, zoomDepth-1).subTiles(zoomDepth-1)
+
 }
 
 /**

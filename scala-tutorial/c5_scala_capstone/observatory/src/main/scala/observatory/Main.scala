@@ -1,9 +1,9 @@
 package observatory
 
+import java.io.File
 import java.util.Calendar
 
-import observatory.Extraction._
-import observatory.Visualization._
+import observatory.Interaction.tile
 import org.apache.spark.{SparkConf, SparkContext}
 
 object Main extends App {
@@ -31,37 +31,57 @@ object Main extends App {
     (-50,	Color(33,   0,    107))
   )
 
-  //temperatureImageSpark(1975)
+  timedOp("Full image for a year", visualizeYear(2002))
+  def visualizeYear(year: Year) : Unit = {
+    val yearData = loadYearAverageData(year)
+    val startMillis = System.currentTimeMillis()
+    Visualization.visualize(yearData, colors).output(new java.io.File(s"$year.png"))
+    println(s" -> Visualization.visualize done in ${System.currentTimeMillis() - startMillis} [ms]")
 
-  def temperatureImageSpark(year: Year) : Unit = {
-    val parsedMeasures = sparkLocateTemperatures(year, "/stations.csv", s"/$year.csv")
-
-    println(s"measures count : ${parsedMeasures.count()}")
-
-    val locatedAverages = sparkLocationYearlyAverageRecords(parsedMeasures)
-    val fullGrid = sparkInterpolateGrid(locatedAverages)
-
-    visualizeRaw(fullGrid, colors).output(new java.io.File(s"$year-spark.png"))
   }
 
-  temperatureImagePar(2002)
+  //timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
+  def saveTileForYear(year: Year, targetTile: Tile) : Unit = {
+    val yearData = loadYearAverageData(year)
+    saveTileAsImage(year, targetTile, yearData)
+  }
 
-  def temperatureImagePar(year: Year) : Unit = {
-    val startMillis = System.currentTimeMillis()
-    Calendar.getInstance().getTime()
-    println(s"Temperature image parallel $year - begin : ${Calendar.getInstance().getTime()}")
+  private def saveTileAsImage(year: Year, t: Tile, locatedAverages: Iterable[(Location, Temperature)]): Unit = {
+    val tileStartMillis = System.currentTimeMillis()
+    val image = tile(locatedAverages, colors, t)
+    println(s" -> $t as image done in: ${System.currentTimeMillis() - tileStartMillis} [ms]")
+
+    val outputDir = new File(s"target/temperatures/$year/${t.zoom}")
+    if (!outputDir.exists()) outputDir.mkdirs()
+    image.output(new java.io.File(s"$outputDir/${t.x}-${t.y}.png"))
+  }
+
+  //timedOp("All tiles for all years", saveAllTiles())
+  def saveAllTiles(): Unit = {
+    val yearlyData = (1975 to 2015).toStream.map(year => (year, loadYearAverageData(year)))
+    Interaction.generateTiles(yearlyData, saveTileAsImage)
+  }
+
+  private def loadYearAverageData(year: Year): Iterable[(Location, Temperature)] = {
+    import Extraction._
+
+    var startMillis = System.currentTimeMillis()
     val parsedMeasures = locateTemperatures(year, "/stations.csv", s"/$year.csv")
-    println(s" -> Parsed measures - done in ${System.currentTimeMillis() - startMillis} [ms]")
+    println(s" -> Parsed measures of year $year in: ${System.currentTimeMillis() - startMillis} [ms]")
 
+    startMillis = System.currentTimeMillis()
     val locatedAverages = locationYearlyAverageRecords(parsedMeasures)
-    println(s" -> Located averages - done in ${System.currentTimeMillis() - startMillis} [ms]")
+    println(s" -> Located averages done in: ${System.currentTimeMillis() - startMillis} [ms]")
 
-    val fullGrid = parInterpolateGrid(locatedAverages.par)
-    println(s" -> Full grid - done in ${System.currentTimeMillis() - startMillis} [ms]")
+    locatedAverages
+  }
 
-    visualizeRaw(fullGrid, colors).output(new java.io.File(s"$year.png"))
-    println(s"Temperature image parallel $year - end : ${Calendar.getInstance().getTime()}")
-    println(s" => Duration ${System.currentTimeMillis() - startMillis} [ms]")
+  private def timedOp(opName: String , computation: => Unit) : Unit = {
+    val startMillis = System.currentTimeMillis()
+    println(s"$opName start : ${Calendar.getInstance().getTime()}")
+    computation
+    println(s"$opName - end : ${Calendar.getInstance().getTime()}")
+    println(s" => Total duration: ${System.currentTimeMillis() - startMillis} [ms]")
   }
 
 }

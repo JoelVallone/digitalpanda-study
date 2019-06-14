@@ -20,6 +20,22 @@ object Interaction {
     * @return A 256×256 image showing the contents of the given tile
     */
   def tile(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)], tile: Tile): Image = {
+    /*
+    def myTileOrdering: Ordering[(Tile, Any)] =
+      Ordering[(Int, Int)].on((t: (Tile, Any)) => (t._1.y, t._1.x))
+
+    val tiledTemperatures: Array[(Location, Pixel)] =
+    tile.subTiles(7).par
+      .map(tile => (tile.location, Pixel(interpolateColor(colors, predictTemperature(temperatures, tile.location)))))
+      .toArray
+
+    val pixels : Array[Pixel] =  tiledTemperatures
+          .sorted(myTileOrdering)
+          .map(_._2)
+
+    Image(128, 128, pixels).resize(2)
+    */
+    // TODO: Fix compilation error on Ordering
     ???
   }
 
@@ -37,8 +53,6 @@ object Interaction {
       zoom <- 0 to 3;
       x <- 0 until (1 << zoom);
       y <- 0 until (1 << zoom)
-    ) yield (year, data, Tile(x, y , zoom))).toList.par
-
-      //TODO: Implement image up-scaling
+    ) yield (year, Tile(x, y , zoom), data))
     .foreach(d => generateImage(d._1, d._2, d._3))
 }
