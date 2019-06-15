@@ -20,20 +20,20 @@ object Main extends App {
 
   @transient lazy val sc: SparkContext = new SparkContext(conf)
 
-  private val colors: Iterable[(Temperature, Color)] = Seq(
+  val colors: Iterable[(Temperature, Color)] = Seq(
     (60,  Color(255,  255,  255)),
     (32,  Color(255,  0,    0)),
     (12,  Color(255,  255,  0)),
-    (-15,	Color(0,    0,    255)),
     (0,   Color(0,    255,  255)),
+    (-15,	Color(0,    0,    255)),
     (-27,	Color(255,  0,    255)),
-    (-60,	Color(0,    0,    0)),
-    (-50,	Color(33,   0,    107))
+    (-50,	Color(33,   0,    107)),
+    (-60,	Color(0,    0,    0))
   )
 
   //timedOp("Full image for a year", visualizeYear(2002))
-  //timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
-  timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
+  timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
+  //timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
   //timedOp("All tiles for all years", saveAllTiles())
 
   def visualizeYear(year: Year) : Unit = {

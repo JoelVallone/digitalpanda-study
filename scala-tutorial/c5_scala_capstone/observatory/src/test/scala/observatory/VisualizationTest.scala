@@ -1,7 +1,6 @@
 package observatory
 
 
-import observatory.Main.sc
 import observatory.Visualization._
 import org.scalatest.prop.Checkers
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
@@ -10,19 +9,15 @@ import scala.util.Random
 
 trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
 
-  override def afterAll(): Unit = {
-    sc.stop()
-  }
-
-  val colors: Iterable[(Temperature, Color)] = Seq(
+  val colors: Iterable[(Temperature, Color)] = Iterable(
     (60,  Color(255,  255,  255)),
     (32,  Color(255,  0,    0)),
+    (12,  Color(255,  255,  0)),
     (0,   Color(0,    255,  255)),
     (-15,	Color(0,    0,    255)),
     (-27,	Color(255,  0,    255)),
-    (12,  Color(255,  255,  0)),
-    (-60,	Color(0,    0,    107)),
-    (-50,	Color(33,   0,    0))
+    (-50,	Color(33,   0,    107)),
+    (-60,	Color(0,    0,    0))
   )
 
   test("'interpolateColor' - correctness") {
@@ -33,17 +28,23 @@ trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
     // > Beyond highest
     assert(interpolateColor(colors, 70)   === Color(255,  255,  255))
     // > Bellow lowest
-    assert(interpolateColor(colors, -800) === Color(0,    0,    107))
+    assert(interpolateColor(colors, -800) === Color(0,    0,    0))
     // > Exact match positive
     assert(interpolateColor(colors, 32)   === Color(255,  0,    0))
+    // > Near zero
+    assert(interpolateColor(colors, 1)    === Color(21 ,  255,  234))
     // > Exact match zero
     assert(interpolateColor(colors, 0)    === Color(0,    255,  255))
     // > Interpolate positive half
     assert(interpolateColor(colors, 22)   === Color(255,  128,  0))
     // > Interpolate negative half
     assert(interpolateColor(colors, -55)  === Color(17,   0,    54))
-    // > Interpolate negative
-    assert(interpolateColor(colors, -59)  === Color(3,   0,    96))
+    // > Interpolate positive
+    assert(interpolateColor(colors, 31)   === Color(255,  13,   0))
+    // > Interpolate negative near low
+    assert(interpolateColor(colors, -59)  === Color(3,    0,    11))
+    // > Interpolate negative near up
+    assert(interpolateColor(colors, -51)  === Color(30,   0,    96))
   }
 
 

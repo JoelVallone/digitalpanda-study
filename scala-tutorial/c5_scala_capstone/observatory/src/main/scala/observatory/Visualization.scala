@@ -10,11 +10,6 @@ import scala.math.{abs, pow, round}
   */
 object Visualization {
 
-  val workerCount : Int = 2
-
-  import org.apache.log4j.{Level, Logger}
-  Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
-
   val p = 6.0
   val earthRadiusMeters = 6371000.0
 
