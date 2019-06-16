@@ -8,6 +8,11 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 object Main extends App {
 
+  /*
+    To Start the computations :
+    > SBT_OPTS="-Xms512M -Xmx14G -Xss2M -XX:MaxMetaspaceSize=1024M" sbt "run 1975 2015" & cpulimit -l 700 -p $! -b
+   */
+
   val workerCount : Int = 1
 
   import org.apache.log4j.{Level, Logger}
@@ -32,9 +37,10 @@ object Main extends App {
   )
 
   //timedOp("Full image for a year", visualizeYear(2002))
-  timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
+  //timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
   //timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
-  //timedOp("All tiles for all years", saveAllTiles())
+  val (from, to) = readInterval()
+  timedOp("All tiles for all years", saveAllTiles(from, to))
 
   def visualizeYear(year: Year) : Unit = {
     val yearData = loadYearAverageData(year)
@@ -49,8 +55,8 @@ object Main extends App {
     saveTileAsImage(year, targetTile, yearData)
   }
 
-  def saveAllTiles(): Unit = {
-    val yearlyData = (1975 to 2015).toStream.map(year => (year, loadYearAverageData(year)))
+  def saveAllTiles(fromYear: Int, toYear: Int): Unit = {
+    val yearlyData = (fromYear to toYear).toStream.map(year => (year, loadYearAverageData(year)))
     Interaction.generateTiles(yearlyData, saveTileAsImage)
   }
 
@@ -85,5 +91,39 @@ object Main extends App {
     println(s"$opName - end : ${Calendar.getInstance().getTime()}")
     println(s" => Total duration: ${System.currentTimeMillis() - startMillis} [ms]")
   }
+
+  private def readInterval():(Int, Int) = {
+
+    val defaultFrom = 1975
+    val defaultTo = 2015
+
+    def readIntOrDefault(idx: Int, default: Int): Int =
+      try {
+        Integer.valueOf(args(idx))
+      } catch {
+        case _: Exception => default
+      }
+
+    def defaultInterval(): (Int, Int) = {
+      System.err.println(
+        s"Warning: Need two input argument specifying an interval between 1975 and 2015. \n" +
+        s"Using default interval of $defaultFrom to $defaultTo")
+      (defaultFrom, defaultTo)
+    }
+
+    if (args.length < 2) {
+      defaultInterval()
+    } else {
+      val from = readIntOrDefault(0, defaultFrom)
+      val to = readIntOrDefault(1, defaultTo)
+      if (from >= 1975 && to <= 2015 && from <= to) {
+        println(s"Using interval from $from to $to")
+        (from, to)
+      } else {
+        defaultInterval()
+      }
+    }
+  }
+
 
 }
