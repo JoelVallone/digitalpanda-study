@@ -66,17 +66,17 @@ object Visualization {
 
   // O(N)... :-/
   def findLowUp(points: Iterable[(Temperature, Color)],
-                value: Temperature,
+                value:  Temperature,
                 lowBnd: (Temperature, Color),
-                upBnd: (Temperature, Color),
-                min: (Temperature, Color),
-                max: (Temperature, Color)): ((Temperature, Color),(Temperature, Color)) = {
+                upBnd:  (Temperature, Color),
+                min:    (Temperature, Color),
+                max:    (Temperature, Color)): ((Temperature, Color),(Temperature, Color)) = {
 
     def nearestBound(delta: ((Temperature, Color),Temperature) => Temperature)
                     (cur:  (Temperature, Color), cand:  (Temperature, Color), t: Temperature): (Temperature, Color) = {
       val newDelta = delta(cand, t)
       val oldDelta = delta(cur, t)
-      if (abs(newDelta) <= abs(oldDelta) && newDelta >= 0) cand else cur
+      if (oldDelta < 0 || (abs(newDelta) <= abs(oldDelta) && newDelta >= 0)) cand else cur
     }
 
     if (points.isEmpty)

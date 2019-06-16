@@ -10,15 +10,15 @@ import scala.util.Random
 trait VisualizationTest extends FunSuite with Checkers with BeforeAndAfterAll{
 
   val colors: Iterable[(Temperature, Color)] = Iterable(
-    (60,  Color(255,  255,  255)),
-    (32,  Color(255,  0,    0)),
-    (12,  Color(255,  255,  0)),
-    (0,   Color(0,    255,  255)),
-    (-15,	Color(0,    0,    255)),
-    (-27,	Color(255,  0,    255)),
-    (-50,	Color(33,   0,    107)),
-    (-60,	Color(0,    0,    0))
-  )
+    (60.0,  Color(255,  255,  255)),
+    (32.0,  Color(255,  0,    0)),
+    (12.0,  Color(255,  255,  0)),
+    (0.0,   Color(0,    255,  255)),
+    (-15.0,	Color(0,    0,    255)),
+    (-27.0,	Color(255,  0,    255)),
+    (-50.0,	Color(33,   0,    107)),
+    (-60.0,	Color(0,    0,    0))
+  ).toArray.sortWith(_._1 < _._1)
 
   test("'interpolateColor' - correctness") {
     // Given

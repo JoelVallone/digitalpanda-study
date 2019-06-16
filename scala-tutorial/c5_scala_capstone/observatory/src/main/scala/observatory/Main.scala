@@ -3,7 +3,7 @@ package observatory
 import java.io.File
 import java.util.Calendar
 
-import observatory.Interaction.tile
+import observatory.Interaction.scaledTile
 import org.apache.spark.{SparkConf, SparkContext}
 
 object Main extends App {
@@ -56,7 +56,7 @@ object Main extends App {
 
   private def saveTileAsImage(year: Year, t: Tile, locatedAverages: Iterable[(Location, Temperature)]): Unit = {
     val tileStartMillis = System.currentTimeMillis()
-    val image = tile(locatedAverages, colors, t)
+    val image = scaledTile(128,2.0)(locatedAverages, colors, t)
     println(s" -> $t of year $year as image done in: ${System.currentTimeMillis() - tileStartMillis} [ms]")
 
     val outputDir = new File(s"target/temperatures/$year/${t.zoom}")
@@ -67,13 +67,13 @@ object Main extends App {
   private def loadYearAverageData(year: Year): Iterable[(Location, Temperature)] = {
     import Extraction._
 
-    var startMillis = System.currentTimeMillis()
+    val parseStartMillis = System.currentTimeMillis()
     val parsedMeasures = locateTemperatures(year, "/stations.csv", s"/$year.csv")
-    println(s" -> Parsed measures of year $year in: ${System.currentTimeMillis() - startMillis} [ms]")
+    println(s" -> Parsed measures of year $year in: ${System.currentTimeMillis() - parseStartMillis} [ms]")
 
-    startMillis = System.currentTimeMillis()
+    val averageStartMillis = System.currentTimeMillis()
     val locatedAverages = locationYearlyAverageRecords(parsedMeasures)
-    println(s" -> Located averages of year $year done in: ${System.currentTimeMillis() - startMillis} [ms]")
+    println(s" -> Located averages of year $year done in: ${System.currentTimeMillis() - averageStartMillis} [ms]")
 
     locatedAverages
   }
