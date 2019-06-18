@@ -3,6 +3,8 @@ package observatory
 import com.sksamuel.scrimage.{Image, Pixel}
 import observatory.Visualization.{interpolateColor, predictTemperature}
 
+import scala.math.{log, round}
+
 /**
   * 3rd milestone: interactive visualization
   */
@@ -21,17 +23,21 @@ object Interaction {
     * @return A 256×256 image showing the contents of the given tile
     */
   def tile(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)], tile: Tile): Image = {
+    scaledTile(256, 1.0)(temperatures, colors, tile)
+  }
+
+  def scaledTile(refSquare: Int, scaleFactor: Double)(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)], tile: Tile): Image = {
 
     def tileOrdering: Ordering[(Tile, Any)] = Ordering[(Int, Int)].on(t => (t._1.y, t._1.x))
 
-    val tiles = tile.subTiles(7)
+    val tiles = tile.subTiles(round(log(refSquare)/log(2.0)).toInt)
     val pixels : Array[Pixel] =  tiles.par
       .map(tile => (tile, Pixel(interpolateColor(colors, predictTemperature(temperatures, tile.location)))))
       .toArray
       .sorted(tileOrdering)
       .map(_._2)
 
-    Image(128, 128, pixels).scale(2.0)
+    Image(refSquare, refSquare, pixels).scale(scaleFactor)
   }
 
   /**

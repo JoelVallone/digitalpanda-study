@@ -1,6 +1,7 @@
 /**/.idea/*
 /**/project/target*
 /**/target/*
+!**/scala-tutorial/c5_scala_capstone/observatory/target/temperatures*
 *~
 *.class
 *.DS_Store
