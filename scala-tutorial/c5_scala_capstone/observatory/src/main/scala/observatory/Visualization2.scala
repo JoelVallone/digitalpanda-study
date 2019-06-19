@@ -1,6 +1,6 @@
 package observatory
 
-import com.sksamuel.scrimage.{Image, Pixel}
+import com.sksamuel.scrimage.Image
 
 /**
   * 5th milestone: value-added information visualization
@@ -23,7 +23,8 @@ object Visualization2 {
     d10: Temperature,
     d11: Temperature
   ): Temperature = {
-    ???
+    val (x, y, dx, dy) = (point.x, point.y, 1.0 - point.x, 1.0 - point.y)
+    d00*dx*dy + d10*x*dy + d01*dx*y + d11*x*y
   }
 
   /**
@@ -37,7 +38,11 @@ object Visualization2 {
     colors: Iterable[(Temperature, Color)],
     tile: Tile
   ): Image = {
-    ???
+    tile.subTiles(8)
+      .map( tile =>
+        (tile, bilinearInterpolation(
+          ???
+        ))
+      )
   }
-
 }

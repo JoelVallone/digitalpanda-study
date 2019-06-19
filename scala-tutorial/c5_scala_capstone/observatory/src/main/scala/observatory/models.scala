@@ -14,7 +14,9 @@ case class Location(lat: Double, lon: Double) {
 
   lazy val latRad : Double = toRadians(lat)
   lazy val lonRad : Double = toRadians(lon)
+  lazy val ceiled : Location = Location(ceil(lat), ceil(lon))
   lazy val rounded : Location = Location(round(lat), round(lon))
+  lazy val floored : Location = Location(floor(lat), floor(lon))
 
   // https://en.wikipedia.org/wiki/Antipodes#Mathematical_description
   def atAntipodesWith(q: Location): Boolean =
