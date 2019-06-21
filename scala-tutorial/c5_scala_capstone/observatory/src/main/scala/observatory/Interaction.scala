@@ -1,7 +1,7 @@
 package observatory
 
 import com.sksamuel.scrimage.{Image, Pixel}
-import observatory.Visualization.{interpolateColor, predictTemperature}
+import observatory.Visualization.{interpolateColor, predictTemperature, toRGB}
 
 import scala.math.{log, round}
 
@@ -32,7 +32,7 @@ object Interaction {
 
     val tiles = tile.subTiles(round(log(refSquare)/log(2.0)).toInt)
     val pixels : Array[Pixel] =  tiles.par
-      .map(tile => (tile, Pixel(interpolateColor(colors, predictTemperature(temperatures, tile.location)))))
+      .map(tile => (tile, Pixel(toRGB(interpolateColor(colors, predictTemperature(temperatures, tile.location))))))
       .toArray
       .sorted(tileOrdering)
       .map(_._2)

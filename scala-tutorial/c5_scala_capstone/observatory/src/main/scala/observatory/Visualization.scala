@@ -1,7 +1,7 @@
 package observatory
 
 
-import com.sksamuel.scrimage.{Image, Pixel}
+import com.sksamuel.scrimage.{Image, Pixel, RGBColor}
 
 import scala.math.{abs, pow, round}
 
@@ -11,7 +11,6 @@ import scala.math.{abs, pow, round}
 object Visualization {
 
   val p = 6.0
-  val earthRadiusMeters = 6371000.0
 
   // https://en.wikipedia.org/wiki/Inverse_distance_weighting
   /**interpolateColor
@@ -106,9 +105,10 @@ object Visualization {
   def visualizeRaw(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Image = {
     def gpsImageOrdering: Ordering[(Location, _)] =
       Ordering[(Double, Double)].on((t: (Location, _)) => (-t._1.lat, t._1.lon))
+
     val pixels : Array[Pixel] =
       temperatures.par
-        .map( locTemp => (locTemp._1, Pixel(interpolateColor(colors, locTemp._2))))
+        .map( locTemp => (locTemp._1, Pixel(toRGB(interpolateColor(colors, locTemp._2)))))
         .toArray
         .sorted(gpsImageOrdering)
         .map(_._2)
@@ -121,5 +121,8 @@ object Visualization {
       lon <- -180L to 179L
     } yield Location(lat, lon)).toList.par
     .map(location => (location, predictTemperature(temperatures,location))).seq
+
+
+  def toRGB(color : Color) : RGBColor = RGBColor(color.red, color.green, color.blue, 127)
 }
 

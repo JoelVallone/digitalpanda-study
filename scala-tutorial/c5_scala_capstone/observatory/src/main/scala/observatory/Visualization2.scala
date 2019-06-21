@@ -1,7 +1,7 @@
 package observatory
 
 import com.sksamuel.scrimage.{Image, Pixel}
-import observatory.Visualization.interpolateColor
+import observatory.Visualization.{interpolateColor, toRGB}
 
 /**
   * 5th milestone: value-added information visualization
@@ -43,7 +43,7 @@ object Visualization2 {
     def tileOrdering: Ordering[(Tile, Any)] = Ordering[(Int, Int)].on(t => (t._1.y, t._1.x))
 
     def interpolateTileAsPixel(tile: Tile) : Pixel =
-      Pixel(interpolateColor(
+      Pixel(toRGB(interpolateColor(
           colors,
           bilinearInterpolation(
             cellPoint(tile),
@@ -52,7 +52,7 @@ object Visualization2 {
             grid(gridLocationOffset(tile, 1,0)),
             grid(gridLocationOffset(tile, 1,1))
           )
-      ))
+      )))
 
     val pixels : Array[Pixel] =  tile.subTiles(8)
       .map( tile => (tile, interpolateTileAsPixel(tile)))

@@ -1,8 +1,5 @@
 package observatory
 
-import com.sksamuel.scrimage.RGBColor
-import observatory.Visualization.earthRadiusMeters
-
 import scala.math._
 
 /**
@@ -28,7 +25,7 @@ case class Location(lat: Double, lon: Double) {
       if (this == q) 0
       else if (this atAntipodesWith q) Pi
       else acos(sin(latRad)*sin(q.latRad) + cos(latRad)*cos(q.latRad)*cos(abs(lonRad - q.lonRad)))
-    earthRadiusMeters * centralAngle
+    6371000.0 * centralAngle
   }
 }
 
@@ -80,7 +77,5 @@ case class CellPoint(x: Double, y: Double)
   * @param green Level of green, 0 ≤ green ≤ 255
   * @param blue Level of blue, 0 ≤ blue ≤ 255
   */
-case class Color(red: Int, green: Int, blue: Int) extends com.sksamuel.scrimage.Color {
-  override def toRGB: RGBColor = RGBColor(red, green, blue, 127)
-}
+case class Color(red: Int, green: Int, blue: Int)
 

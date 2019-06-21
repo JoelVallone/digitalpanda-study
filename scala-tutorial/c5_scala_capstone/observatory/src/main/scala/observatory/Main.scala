@@ -25,26 +25,6 @@ object Main extends App {
 
   @transient lazy val sc: SparkContext = new SparkContext(conf)
 
-  val colorsAbs: Iterable[(Temperature, Color)] = Seq(
-    (60,  Color(255,  255,  255)),
-    (32,  Color(255,  0,    0)),
-    (12,  Color(255,  255,  0)),
-    (0,   Color(0,    255,  255)),
-    (-15,	Color(0,    0,    255)),
-    (-27,	Color(255,  0,    255)),
-    (-50,	Color(33,   0,    107)),
-    (-60,	Color(0,    0,    0))
-  )
-
-  val colorsDev: Iterable[(Temperature, Color)] = Seq(
-    (7,  Color(0,   0,    0)),
-    (4,  Color(255, 0,    0)),
-    (2,  Color(255, 255,  0)),
-    (0,  Color(255, 255,  255)),
-    (-2, Color(0,   255,  255)),
-    (-7, Color(0,   0,    255))
-  )
-
   //timedOp("Full image for a year", visualizeYear(2002))
   //timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
   //timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
@@ -54,7 +34,7 @@ object Main extends App {
   def visualizeYear(year: Year) : Unit = {
     val yearData = loadYearAverageData(year)
     val startMillis = System.currentTimeMillis()
-    Visualization.visualize(yearData, colorsAbs).output(new java.io.File(s"$year.png"))
+    Visualization.visualize(yearData, colorsAbsolute).output(new java.io.File(s"$year.png"))
     println(s" -> Visualization.visualize done in ${System.currentTimeMillis() - startMillis} [ms]")
 
   }
@@ -71,7 +51,7 @@ object Main extends App {
 
   private def saveTileAsImage(year: Year, t: Tile, locatedAverages: Iterable[(Location, Temperature)]): Unit = {
     val tileStartMillis = System.currentTimeMillis()
-    val image = scaledTile(128,2.0)(locatedAverages, colorsAbs, t)
+    val image = scaledTile(128,2.0)(locatedAverages, colorsAbsolute, t)
     println(s" -> $t of year $year as image done in: ${System.currentTimeMillis() - tileStartMillis} [ms]")
 
     val outputDir = new File(s"target/temperatures/$year/${t.zoom}")
