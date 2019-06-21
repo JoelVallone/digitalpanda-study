@@ -1,6 +1,7 @@
 package observatory
 
-import com.sksamuel.scrimage.Image
+import com.sksamuel.scrimage.{Image, Pixel}
+import observatory.Visualization.interpolateColor
 
 /**
   * 5th milestone: value-added information visualization
@@ -38,11 +39,43 @@ object Visualization2 {
     colors: Iterable[(Temperature, Color)],
     tile: Tile
   ): Image = {
-    tile.subTiles(8)
-      .map( tile =>
-        (tile, bilinearInterpolation(
-          ???
-        ))
-      )
+
+    def tileOrdering: Ordering[(Tile, Any)] = Ordering[(Int, Int)].on(t => (t._1.y, t._1.x))
+
+    def interpolateTileAsPixel(tile: Tile) : Pixel =
+      Pixel(interpolateColor(
+          colors,
+          bilinearInterpolation(
+            cellPoint(tile),
+            grid(gridLocationOffset(tile, 0,0)),
+            grid(gridLocationOffset(tile, 0,1)),
+            grid(gridLocationOffset(tile, 1,0)),
+            grid(gridLocationOffset(tile, 1,1))
+          )
+      ))
+
+    val pixels : Array[Pixel] =  tile.subTiles(8)
+      .map( tile => (tile, interpolateTileAsPixel(tile)))
+      .toArray
+      .sorted(tileOrdering)
+      .map(_._2)
+
+    Image(256, 256, pixels)
   }
+
+  def cellPoint(tile: Tile): CellPoint =
+    CellPoint(
+      tile.location.lon - tile.location.floored.lon,
+      tile.location.lat - tile.location.floored.lat
+    )
+
+  def gridLocationOffset(tile: Tile, lonOffset: Int, latOffset: Int): GridLocation = {
+    val lat = tile.location.floored.lat.toInt + latOffset
+    val lon = tile.location.floored.lon.toInt + lonOffset
+    GridLocation(
+      lat,  // No need to account for latitude offset as it asymptotically reaches 90/-90 ° in the tile.y coordinate
+      circularLongitude(lon))
+     }
+
+  def circularLongitude(lon : Int) : Int = ((lon + 180) % 360) - 180
 }
