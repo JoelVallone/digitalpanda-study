@@ -4,7 +4,6 @@ import java.io.File
 import java.util.Calendar
 
 import observatory.Interaction.scaledTile
-import org.apache.spark.{SparkConf, SparkContext}
 
 object Main extends App {
 
@@ -13,23 +12,11 @@ object Main extends App {
     > SBT_OPTS="-Xms512M -Xmx14G -Xss2M -XX:MaxMetaspaceSize=1024M" sbt "run 1975 2015" & cpulimit -l 700 -p $! -b
    */
 
-  val workerCount : Int = 1
-
-  import org.apache.log4j.{Level, Logger}
-  Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
-
-  @transient lazy val conf: SparkConf = new SparkConf()
-  .setMaster(s"local")
-  .setAppName("StackOverflow")
-  .set("spark.driver.bindAddress", "127.0.0.1")
-
-  @transient lazy val sc: SparkContext = new SparkContext(conf)
-
   //timedOp("Full image for a year", visualizeYear(2002))
-  //timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
+  timedOp("Tile for a year", saveTileForYear(2002, Tile(0, 0, 0)))
   //timedOp("Tile for a year", saveTileForYear(2002, Tile(1, 1, 1)))
-  val (from, to) = readInterval()
-  timedOp("All tiles for all years", saveAllTiles(from, to))
+  //val (from, to) = readInterval(args)
+  //timedOp("All tiles for all years", saveAllTiles(from, to))
 
   def visualizeYear(year: Year) : Unit = {
     val yearData = loadYearAverageData(year)
@@ -73,7 +60,7 @@ object Main extends App {
     locatedAverages
   }
 
-  private def timedOp(opName: String , computation: => Unit) : Unit = {
+  def timedOp(opName: String , computation: => Unit) : Unit = {
     val startMillis = System.currentTimeMillis()
     println(s"$opName start : ${Calendar.getInstance().getTime()}")
     computation
@@ -81,7 +68,7 @@ object Main extends App {
     println(s" => Total duration: ${System.currentTimeMillis() - startMillis} [ms]")
   }
 
-  private def readInterval():(Int, Int) = {
+  def readInterval(arguments: Array[String]):(Int, Int) = {
 
     val defaultFrom = 1975
     val defaultTo = 2015
@@ -100,7 +87,7 @@ object Main extends App {
       (defaultFrom, defaultTo)
     }
 
-    if (args.length < 2) {
+    if (arguments.length < 2) {
       defaultInterval()
     } else {
       val from = readIntOrDefault(0, defaultFrom)

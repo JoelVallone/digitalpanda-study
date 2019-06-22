@@ -2,6 +2,7 @@ package observatory
 
 import com.sksamuel.scrimage.{Image, Pixel}
 import observatory.Visualization.{interpolateColor, predictTemperature, toRGB}
+import org.apache.spark.rdd.RDD
 
 import scala.math.{log, round}
 
@@ -28,16 +29,20 @@ object Interaction {
 
   def scaledTile(refSquare: Int, scaleFactor: Double)(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)], tile: Tile): Image = {
 
+    val pixels: Array[Pixel] = scaledTileRawPixels(refSquare)(temperatures, colors, tile).map(Pixel(_))
+    Image(refSquare, refSquare, pixels).scale(scaleFactor)
+  }
+
+  def scaledTileRawPixels(refSquare: Int)(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)], tile: Tile): Array[Int] = {
+
     def tileOrdering: Ordering[(Tile, Any)] = Ordering[(Int, Int)].on(t => (t._1.y, t._1.x))
 
     val tiles = tile.subTiles(round(log(refSquare)/log(2.0)).toInt)
-    val pixels : Array[Pixel] =  tiles.par
+    tiles.par
       .map(tile => (tile, Pixel(toRGB(interpolateColor(colors, predictTemperature(temperatures, tile.location))))))
       .toArray
       .sorted(tileOrdering)
-      .map(_._2)
-
-    Image(refSquare, refSquare, pixels).scale(scaleFactor)
+      .map(_._2.toInt)
   }
 
   /**
@@ -56,4 +61,16 @@ object Interaction {
       y <- 0 until (1 << zoom)
     ) yield (year, Tile(x, y , zoom), data))
     .foreach(d => generateImage(d._1, d._2, d._3))
+
+
+  def generateTilesSpark[Data]( yearlyData: Iterable[(Year, RDD[Data])], generateImage: RDD[((Year, Tile), Data)] => Unit ): Unit =
+    (
+      for (
+        (year, data) <- yearlyData;
+        zoom <- 0 to 0;
+        x <- 0 until (1 << zoom);
+        y <- 0 until (1 << zoom)
+      ) yield  data.map( data => ((year, Tile(x, y , zoom)), data))
+    ).toArray
+    .foreach(generateImage)
 }

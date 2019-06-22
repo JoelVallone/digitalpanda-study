@@ -2,7 +2,7 @@ package observatory
 
 import java.time.LocalDate
 
-import observatory.Main.sc
+import observatory.MainSpark.sc
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 
@@ -51,13 +51,6 @@ object Extraction {
 
     val stations = sparkLoadStations(stationsFile)
     val temperatures = sparkLoadTemperatures(temperaturesFile, year)
-
-    /*
-    val stationCol = stations.collect()
-    println(s"stations count : ${stationCol.length}")
-    val temperaturesCol = temperatures.collect()
-    println(s"stations count : ${temperaturesCol.length}")
-*/
     temperatures
       .join(stations)
       .map{ case (_,((date, temp), location)) => (date, location, temp)}
@@ -127,22 +120,12 @@ object Extraction {
       None
   }
 
-  /*
-    def load[K,V](file: String, parser: String =>  Option[(K,V)]) : RDD[(K,V)] =
-      sc.textFile(Extraction.getClass.getResource(file).getPath)
-      .map(parser)
-      .filter(c => c.isDefined)
-      .map(_.get)
-      .partitionBy(new HashPartitioner(120))
-  */
-
   /**
     * @param records A sequence containing triplets (date, location, temperature)
     * @return A sequence containing, for each location, the average temperature over the year.
     */
   def locationYearlyAverageRecords(records: Iterable[(LocalDate, Location, Temperature)]): Iterable[(Location, Temperature)] = {
     parLocationYearlyAverageRecords(records)
-    //sparkLocationYearlyAverageRecords(sc.parallelize(records.toSeq)).collect().toSeq
   }
 
   def parLocationYearlyAverageRecords(records: Iterable[(LocalDate, Location, Temperature)]): Iterable[(Location, Temperature)] =
@@ -156,12 +139,10 @@ object Extraction {
         if (count != 0) temp / count else 0
       }).toList
 
-  def sparkLocationYearlyAverageRecords(records: RDD[(LocalDate, Location, Temperature)]): RDD[(Location, Temperature)] = {
+  def sparkLocationYearlyAverageRecords(records: RDD[(LocalDate, Location, Temperature)]): RDD[(Location, Temperature)] =
     records
       .map{ case (_, location, temp) => (location, (temp, 1))}
       .partitionBy(new HashPartitioner(workerCount))
       .reduceByKey { case ((t1,c1), (t2,c2)) => (t1+t2, c1+c2)}
       .mapValues{case (temp, count) => if (count != 0) temp / count else 0}
-  }
-
 }
