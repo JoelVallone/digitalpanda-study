@@ -12,9 +12,9 @@ object Interaction2 {
     */
   def availableLayers: Seq[Layer] =
     Seq(
-      //Layer(LayerName.Temperatures, colorsAbsolute,   2011 to 2015)
-      Layer(LayerName.Temperatures, colorsAbsolute,   1975 to 2015),
-      Layer(LayerName.Deviations,   colorsDeviation,  1975 to 2015)
+      Layer(LayerName.Temperatures, colorsAbsolute,   2011 to 2015)
+      //Layer(LayerName.Temperatures, colorsAbsolute,   1975 to 2015),
+      //Layer(LayerName.Deviations,   colorsDeviation,  1975 to 2015)
     )
 
   /**
@@ -22,7 +22,7 @@ object Interaction2 {
     * @return A signal containing the year bounds corresponding to the selected layer
     */
   def yearBounds(selectedLayer: Signal[Layer]): Signal[Range] =
-    Signal(availableLayers.find(_.equals(selectedLayer())).map(_.bounds).orNull)
+    Signal(selectedLayer().bounds)
 
   /**
     * @param selectedLayer The selected layer
