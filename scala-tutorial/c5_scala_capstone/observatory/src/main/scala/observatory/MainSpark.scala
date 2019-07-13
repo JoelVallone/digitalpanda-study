@@ -1,7 +1,7 @@
 package observatory
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
 import java.io.File
 
 import Extraction._
@@ -15,28 +15,41 @@ object MainSpark extends App {
   val workerCount : Int = 1
 
   import org.apache.log4j.{Level, Logger}
-  Logger.getLogger("org.apache.spark").setLevel(Level.INFO)
+  Logger.getLogger("org.apache.spark").setLevel(Level.DEBUG)
 
   @transient lazy val conf: SparkConf = new SparkConf()
-    .setMaster(s"local[4]")
-    .setAppName("StackOverflow")
-    .set("spark.driver.bindAddress", "127.0.0.1")
+    .setMaster(s"local[1]")
+    .setAppName("Observatory")
+    //.set("spark.executor.memory", "4g")
+    //.set("spark.executor.cores", "2")
+    //.set("spark.driver.bindAddress", "127.0.0.1")
 
   @transient lazy val sc: SparkContext = new SparkContext(conf)
 
 
-  val (from, to) = readInterval(args)
+  val (from, to) = (1976, 1976)//readInterval(args)
   timedOp(s"All tiles for years $from to $to", saveAllTiles(from, to))
+  println("press enter to stop application")
+  scala.io.StdIn.readLine()
 
   def saveAllTiles(fromYear: Int, toYear: Int): Unit = {
-    val yearlyData : Iterable[(Year, RDD[(Year, Iterable[(Location, Temperature)])])] = (fromYear to toYear).toStream
-      .map(year => (year, loadYearAverageData(year).groupBy(_ => year).persist()))
-    generateTilesSpark(yearlyData, saveTileAsImage(128, 2.0))
+    val yearlyData : Iterable[(Year, RDD[(Year, Iterable[(Location, Temperature)])])] =
+      (fromYear to toYear)
+        .toStream
+        .map(year => (year, loadYearAverageData(year)))
+
+    generateTilesSpark(
+      yearlyData,
+      saveTileAsImage(128, 2.0))
   }
 
-  private def loadYearAverageData(year: Year): RDD[(Location, Temperature)] =
-   sparkLocationYearlyAverageRecords(
-     sparkLocateTemperatures(year, "/stations.csv", s"/$year.csv"))
+  private def loadYearAverageData(year: Year): RDD[(Year, Iterable[(Location, Temperature)])] =
+    sparkLocationYearlyAverageRecords(
+     sparkLocateTemperatures(year, "/stations.csv", s"/$year.csv")
+    )
+     .groupBy(_ => year) // TODO: Seems to block when more than one tile to compute...
+     //.partitionBy(new HashPartitioner(sc.getExecutorStorageSthatus.length - 1))
+     .persist()
 
   private def saveTileAsImage(refSquare: Int, scaleFactor: Double)(yearLocatedAverages: RDD[((Year, Tile), (Year, Iterable[(Location, Temperature)]))]) : Unit =
     yearLocatedAverages

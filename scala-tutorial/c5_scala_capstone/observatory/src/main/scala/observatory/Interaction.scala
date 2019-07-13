@@ -62,15 +62,14 @@ object Interaction {
     ) yield (year, Tile(x, y , zoom), data))
     .foreach(d => generateImage(d._1, d._2, d._3))
 
-
   def generateTilesSpark[Data]( yearlyData: Iterable[(Year, RDD[Data])], generateImage: RDD[((Year, Tile), Data)] => Unit ): Unit =
     (
       for (
-        (year, data) <- yearlyData;
-        zoom <- 0 to 0;
+        (year, dataRdd) <- yearlyData;
+        zoom <- 0 to 1;
         x <- 0 until (1 << zoom);
         y <- 0 until (1 << zoom)
-      ) yield  data.map( data => ((year, Tile(x, y , zoom)), data))
-    ).toArray
+      ) yield  dataRdd.map( yearData => ((year, Tile(x, y , zoom)), yearData))
+    )//.toParArray // TODO: Seems to block when more than one tile to compute.
     .foreach(generateImage)
 }

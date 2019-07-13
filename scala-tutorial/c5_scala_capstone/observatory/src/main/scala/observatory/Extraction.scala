@@ -16,7 +16,7 @@ object Extraction {
   val workerCount : Int = 4
 
   import org.apache.log4j.{Level, Logger}
-  Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
+  Logger.getLogger("org.apache.spark").setLevel(Level.INFO)
 
   /**
     * @param year             Year number
