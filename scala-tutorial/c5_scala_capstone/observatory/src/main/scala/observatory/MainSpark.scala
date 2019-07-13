@@ -7,7 +7,7 @@ import java.io.File
 import Extraction._
 import Interaction._
 import com.sksamuel.scrimage.{Image, Pixel}
-import observatory.Main.{readInterval, timedOp}
+import observatory.Main.timedOp
 
 
 object MainSpark extends App {
@@ -18,7 +18,7 @@ object MainSpark extends App {
   Logger.getLogger("org.apache.spark").setLevel(Level.DEBUG)
 
   @transient lazy val conf: SparkConf = new SparkConf()
-    .setMaster(s"local[1]")
+    .setMaster(s"local[4]")
     .setAppName("Observatory")
     //.set("spark.executor.memory", "4g")
     //.set("spark.executor.cores", "2")

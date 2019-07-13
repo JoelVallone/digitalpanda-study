@@ -38,7 +38,7 @@ object Interaction {
     def tileOrdering: Ordering[(Tile, Any)] = Ordering[(Int, Int)].on(t => (t._1.y, t._1.x))
 
     val tiles = tile.subTiles(round(log(refSquare)/log(2.0)).toInt)
-    tiles.par
+    tiles//.par
       .map(tile => (tile, Pixel(toRGB(interpolateColor(colors, predictTemperature(temperatures, tile.location))))))
       .toArray
       .sorted(tileOrdering)
@@ -70,6 +70,6 @@ object Interaction {
         x <- 0 until (1 << zoom);
         y <- 0 until (1 << zoom)
       ) yield  dataRdd.map( yearData => ((year, Tile(x, y , zoom)), yearData))
-    )//.toParArray // TODO: Seems to block when more than one tile to compute.
+    ).toParArray
     .foreach(generateImage)
 }
