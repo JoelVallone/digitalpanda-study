@@ -5,6 +5,40 @@ import com.sksamuel.scrimage.{Image, Pixel, RGBColor}
 
 import scala.math.{abs, pow, round}
 
+
+class Visualization {
+  // https://en.wikipedia.org/wiki/Inverse_distance_weighting
+  /** interpolateColor
+    *
+    * @param temperatures   Known temperatures: pairs containing a location and the temperature at this location
+    * @param targetLocation Location where to predict the temperature
+    * @return The predicted temperature at `location`
+    */
+  def predictTemperature2(temperatures: Iterable[(Location, Temperature)], targetLocation: Location): Temperature = {
+    //TODO: .par seems to block when more than one worker on local node compute:
+    // - https://stackoverflow.com/questions/15176199/scala-parallel-collection-in-object-initializer-causes-a-program-to-hang/15176433#15176433
+    val distTemps = temperatures.par
+      .map { case (location, temperature) => (location circleDist targetLocation, temperature) }
+
+    def distTemp: Ordering[(Double, Temperature)] = Ordering[Double].on(_._1)
+
+    val minDistTemp = distTemps.min(distTemp)
+
+    if (minDistTemp._1 < 1000.0)
+      minDistTemp._2
+    else {
+      val weightTemps = distTemps
+        .map(distTemp => (pow(1 / distTemp._1, Visualization.p), distTemp._2))
+      val weightSum = weightTemps
+        .aggregate(0.0)((acc, wTemp) => acc + wTemp._1, _ + _)
+      if (weightSum != 0)
+        weightTemps
+          .aggregate(0.0)((acc, wTemp) => acc + wTemp._1 * wTemp._2, _ + _) / weightSum
+      else 0
+    }
+  }
+}
+
 /**
   * 2nd milestone: basic visualization
   */

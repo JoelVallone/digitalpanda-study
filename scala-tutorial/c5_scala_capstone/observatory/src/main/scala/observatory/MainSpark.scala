@@ -12,13 +12,13 @@ import observatory.Main.timedOp
 
 object MainSpark extends App {
 
-  val workerCount : Int = 1
+  val workerCount : Int = 4
 
   import org.apache.log4j.{Level, Logger}
   Logger.getLogger("org.apache.spark").setLevel(Level.DEBUG)
 
   @transient lazy val conf: SparkConf = new SparkConf()
-    .setMaster(s"local[4]")
+    .setMaster(s"local[$workerCount]")
     .setAppName("Observatory")
     //.set("spark.executor.memory", "4g")
     //.set("spark.executor.cores", "2")
@@ -47,8 +47,8 @@ object MainSpark extends App {
     sparkLocationYearlyAverageRecords(
      sparkLocateTemperatures(year, "/stations.csv", s"/$year.csv")
     )
-     .groupBy(_ => year) // TODO: Seems to block when more than one tile to compute...
-     //.partitionBy(new HashPartitioner(sc.getExecutorStorageSthatus.length - 1))
+     .groupBy(_ => year)
+     .partitionBy(new HashPartitioner(workerCount))
      .persist()
 
   private def saveTileAsImage(refSquare: Int, scaleFactor: Double)(yearLocatedAverages: RDD[((Year, Tile), (Year, Iterable[(Location, Temperature)]))]) : Unit =

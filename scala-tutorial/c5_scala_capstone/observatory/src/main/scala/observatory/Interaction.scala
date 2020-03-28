@@ -39,7 +39,7 @@ object Interaction {
 
     val tiles = tile.subTiles(round(log(refSquare)/log(2.0)).toInt)
     tiles//.par
-      .map(tile => (tile, Pixel(toRGB(interpolateColor(colors, predictTemperature(temperatures, tile.location))))))
+      .map(tile => (tile, Pixel(toRGB(interpolateColor(colors, new Visualization().predictTemperature2(temperatures, tile.location))))))
       .toArray
       .sorted(tileOrdering)
       .map(_._2.toInt)
