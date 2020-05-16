@@ -5,6 +5,33 @@
 
 * Running code against cluster
 ```
-export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64; 
-sbt -java-home $JAVA_HOME "set test in assembly := {}" clean assembly
+./scripts/buildAndCopy.sh
+toolbox
+spark-submit \
+    --class observatory.MainSpark \
+    --master yarn \
+    --deploy-mode cluster \
+    --driver-memory 512m  \
+    --executor-memory 2g \
+    --executor-cores 1 \
+    --queue default  \
+    ${TOOLBOX_STATE}/observatory*.jar
+```
+
+* Kill spark application
+```
+yarn application -kill application_1589635410569_0008
+```
+
+* Example spark job submit from toolbox:
+```
+spark-submit \
+    --class org.apache.spark.examples.SparkPi \
+    --master yarn \
+    --deploy-mode cluster \
+    --driver-memory 512m  \
+    --executor-memory 512m \
+    --executor-cores 1 \
+    --queue default  \
+    ${SPARK_HOME}/examples/jars/spark-examples*.jar 100
 ```
