@@ -1,7 +1,12 @@
 /**/.idea/*
 /**/project/target*
 /**/target/*
+/**/resources/*
+/**/temperatures/*
 !**/scala-tutorial/c5_scala_capstone/observatory/target/temperatures*
+!**/scala-tutorial/c5_scala_capstone/observatory-spark/target/temperatures*
 *~
 *.class
 *.DS_Store
+/**/programming_in_scala_2nd_scala_v_2.8.pdf
+/**/Designing Data-Intensive Applications - Martin Kleppmann 2017.03.pdf

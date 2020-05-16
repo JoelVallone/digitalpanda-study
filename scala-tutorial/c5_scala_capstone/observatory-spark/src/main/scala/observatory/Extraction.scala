@@ -46,11 +46,11 @@ object Extraction {
   }
 
   def sparkLocateTemperatures(year: Year,
-                              stationsFile: String,
-                              temperaturesFile: String): RDD[(LocalDate, Location, Temperature)] = {
+                              stationsFilePath: String,
+                              temperaturesFilePath: String): RDD[(LocalDate, Location, Temperature)] = {
 
-    val stations = sparkLoadStations(stationsFile)
-    val temperatures = sparkLoadTemperatures(temperaturesFile, year)
+    val stations = sparkLoadStations(stationsFilePath)
+    val temperatures = sparkLoadTemperatures(temperaturesFilePath, year)
     temperatures
       .join(stations)
       .map{ case (_,((date, temp), location)) => (date, location, temp)}
@@ -64,8 +64,8 @@ object Extraction {
       .map( opt => opt.get._1 -> opt.get._2)
       .toMap.seq
 
-  def sparkLoadStations(stationsFile : String): RDD[((String, String), Location)] =
-    sc.textFile(Extraction.getClass.getResource(stationsFile).getPath)
+  def sparkLoadStations(stationsFilePath : String): RDD[((String, String), Location)] =
+    sc.textFile(stationsFilePath)
     .map(parseStationRow)
     .filter(c => c.isDefined)
     .map(_.get)
@@ -95,8 +95,8 @@ object Extraction {
       .groupBy(_._1)
       .mapValues( v => v.map(_._2))
 
-  def sparkLoadTemperatures(temperaturesFile : String, year: Year): RDD[((String, String), (LocalDate, Temperature))] =
-      sc.textFile(Extraction.getClass.getResource(temperaturesFile).getPath)
+  def sparkLoadTemperatures(temperaturesFilePath : String, year: Year): RDD[((String, String), (LocalDate, Temperature))] =
+      sc.textFile(temperaturesFilePath)
         .map(parseTemperatureRow(year))
         .filter(c => c.isDefined)
         .map(_.get)

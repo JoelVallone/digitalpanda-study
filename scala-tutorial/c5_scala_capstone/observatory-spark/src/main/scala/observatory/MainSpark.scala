@@ -13,16 +13,19 @@ import observatory.Main.timedOp
 object MainSpark extends App {
 
   val workerCount : Int = 2
+  val hdfs_master_uri : String = "hdfs://fanless1.digitalpanda.org"
 
   import org.apache.log4j.{Level, Logger}
   Logger.getLogger("org.apache.spark").setLevel(Level.DEBUG)
 
+  //https://stackoverflow.com/questions/42234447/running-from-a-local-ide-against-a-remote-spark-cluster
+
   @transient lazy val conf: SparkConf = new SparkConf()
-    .setMaster(s"local[$workerCount]")
+    .setMaster(s"fanless1.digitalpanda.org[$workerCount]")
     .setAppName("Observatory")
-    .set("spark.executor.memory", "8g")
-    .set("spark.executor.cores", "1")
-    .set("spark.driver.bindAddress", "127.0.0.1")
+    .set("spark.executor.memory", "4g")
+    .set("spark.executor.cores", "2")
+    //.set("spark.driver.bindAddress", "fanless1.digitalpanda.org") // 192.168.1.1 or fanless1.digitalpanda.org
 
   @transient lazy val sc: SparkContext = new SparkContext(conf)
 
@@ -45,7 +48,9 @@ object MainSpark extends App {
 
   private def loadYearAverageData(year: Year): RDD[(Year, Iterable[(Location, Temperature)])] =
     sparkLocationYearlyAverageRecords(
-     sparkLocateTemperatures(year, "/stations.csv", s"/$year.csv")
+     sparkLocateTemperatures(year,
+       s"$hdfs_master_uri/scala-capstone-data/stations.csv",
+       s"$hdfs_master_uri/scala-capstone-data/$year.csv")
     )
      .groupBy(_ => year)
      .partitionBy(new HashPartitioner(workerCount))
@@ -59,7 +64,7 @@ object MainSpark extends App {
     .collect()
       .foreach { case ((year: Year, t: Tile), rawPixels: Array[Int]) =>
           println(s"Save image tile $t of year $year")
-          val outputDir = new File(s"target/temperatures/$year/${t.zoom}")
+          val outputDir = new File(s"target/spark/temperatures/$year/${t.zoom}")
           if (!outputDir.exists()) outputDir.mkdirs()
           Image(refSquare, refSquare, rawPixels.map(Pixel(_)))
             .scale(scaleFactor)
