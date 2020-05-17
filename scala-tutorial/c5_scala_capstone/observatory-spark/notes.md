@@ -12,9 +12,17 @@ spark-submit \
     --master yarn \
     --deploy-mode cluster \
     --driver-memory 512m  \
-    --executor-memory 2g \
+    --num-executors 4 \
+    --executor-memory 1g \
     --executor-cores 1 \
     --queue default  \
+    --conf spark.test1=aaa-spark.test1 \
+    --conf spark.hadoop.test1=bbb-spark.hadoop.test1 \
+    --conf spark.observatory.tile.fromYear=1976 \
+    --conf spark.observatory.tile.toYear=1976 \
+    --conf spark.observatory.tile.ZoomDepth=0 \
+    --conf spark.observatory.tile.doSaveToLocalFS=true \
+    --conf spark.observatory.tile.doSaveTilesToHDFS=true \
     ${TOOLBOX_STATE}/observatory*.jar
 ```
 

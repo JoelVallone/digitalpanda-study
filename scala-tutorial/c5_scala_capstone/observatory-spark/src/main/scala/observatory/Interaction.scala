@@ -50,26 +50,30 @@ object Interaction {
     *
     * @param yearlyData Sequence of (year, data), where `data` is some data associated with
     *                   `year`. The type of `data` can be anything.
-    * @param generateImage Function that generates an image given a year, a zoom level, the x and
+    * @param generateAndSaveImage Function that generates an image given a year, a zoom level, the x and
     *                      y coordinates of the tile and the data to build the image from
     */
-  def generateTiles[Data]( yearlyData: Iterable[(Year, Data)], generateImage: (Year, Tile, Data) => Unit ): Unit =
+  def generateTiles[Data](yearlyData: Iterable[(Year, Data)],
+                          generateAndSaveImage: (Year, Tile, Data) => Unit ): Unit =
     (for (
       (year, data) <- yearlyData;
       zoom <- 0 to 3;
       x <- 0 until (1 << zoom);
       y <- 0 until (1 << zoom)
     ) yield (year, Tile(x, y , zoom), data))
-    .foreach(d => generateImage(d._1, d._2, d._3))
+    .foreach(d => generateAndSaveImage(d._1, d._2, d._3))
 
-  def generateTilesSpark[Data]( yearlyData: Iterable[(Year, RDD[Data])], generateImage: RDD[((Year, Tile), Data)] => Unit ): Unit =
+  def generateTilesSparkProcessingGraph[Data](zoomDepth: Int,
+                                              yearlyData: Iterable[(Year, RDD[Data])],
+                                              generateAndSaveImage: RDD[((Year, Tile), Data)] => Unit ): Unit =
     (
       for (
         (year, dataRdd) <- yearlyData;
-        zoom <- 0 to 1;
+        zoom <- 0 to zoomDepth;
         x <- 0 until (1 << zoom);
         y <- 0 until (1 << zoom)
       ) yield  dataRdd.map( yearData => ((year, Tile(x, y , zoom)), yearData))
-    ).toParArray
-    .foreach(generateImage)
+    )
+      .toParArray
+      .foreach(generateAndSaveImage)
 }
