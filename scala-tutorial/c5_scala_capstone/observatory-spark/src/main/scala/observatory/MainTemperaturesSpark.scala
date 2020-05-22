@@ -11,7 +11,7 @@ import observatory.Main.timedOp
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 
-object MainSpark extends App {
+object MainTemperaturesSpark extends App { // TODO: extend from ObservatorySparkApp instead of App
 
   val dataFolder = "hdfs:///scala-capstone-data/"
   val workerCount : Int = 2

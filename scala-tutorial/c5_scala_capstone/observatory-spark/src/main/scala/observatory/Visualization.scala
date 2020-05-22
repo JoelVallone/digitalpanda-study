@@ -55,7 +55,7 @@ object Visualization {
   def predictTemperature(temperatures: Iterable[(Location, Temperature)], targetLocation: Location): Temperature = {
     //TODO: .par seems to block when more than one worker on local node compute:
     // - https://stackoverflow.com/questions/15176199/scala-parallel-collection-in-object-initializer-causes-a-program-to-hang/15176433#15176433
-    val distTemps = temperatures//.par
+    val distTemps = temperatures.par
       .map {case (location, temperature) => (location circleDist targetLocation, temperature)}
 
     def distTemp: Ordering[(Double, Temperature)] = Ordering[Double].on(_._1)
@@ -100,6 +100,7 @@ object Visualization {
   }
 
   // O(N)... :-/
+  @scala.annotation.tailrec
   def findLowUp(points: Iterable[(Temperature, Color)],
                 value:  Temperature,
                 lowBnd: (Temperature, Color),

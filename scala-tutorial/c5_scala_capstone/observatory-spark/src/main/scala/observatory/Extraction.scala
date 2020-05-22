@@ -2,7 +2,7 @@ package observatory
 
 import java.time.LocalDate
 
-import observatory.MainSpark.sc
+import observatory.MainTemperaturesSpark.sc
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 
@@ -13,7 +13,7 @@ import scala.io.Source
   */
 object Extraction {
 
-  val workerCount : Int = 4
+  val refPartitionCount : Int = 4
 
   import org.apache.log4j.{Level, Logger}
   Logger.getLogger("org.apache.spark").setLevel(Level.INFO)
@@ -69,7 +69,7 @@ object Extraction {
     .map(parseStationRow)
     .filter(c => c.isDefined)
     .map(_.get)
-    .partitionBy(new HashPartitioner(workerCount))
+    .partitionBy(new HashPartitioner(refPartitionCount))
     .persist()
 
   def parseStationRow(row: String): Option[((String, String), Location)] = {
@@ -142,7 +142,7 @@ object Extraction {
   def sparkLocationYearlyAverageRecords(records: RDD[(LocalDate, Location, Temperature)]): RDD[(Location, Temperature)] =
     records
       .map{ case (_, location, temp) => (location, (temp, 1))}
-      .partitionBy(new HashPartitioner(workerCount))
+      .partitionBy(new HashPartitioner(refPartitionCount))
       .reduceByKey { case ((t1,c1), (t2,c2)) => (t1+t2, c1+c2)}
       .mapValues{case (temp, count) => if (count != 0) temp / count else 0}
 }
