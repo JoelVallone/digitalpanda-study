@@ -3,6 +3,8 @@ package observatory
 import com.sksamuel.scrimage.{Image, Pixel}
 import observatory.Visualization.{interpolateColor, toRGB}
 
+import scala.math.{log, round}
+
 /**
   * 5th milestone: value-added information visualization
   *  - https://www.coursera.org/learn/scala-capstone/supplement/Ymsmh/value-added-information-visualization
@@ -38,33 +40,37 @@ object Visualization2 {
     * @param tile Tile coordinates to visualize
     * @return The image of the tile at (x, y, zoom) showing the grid using the given color scale
     */
-  def visualizeGrid(
-    grid: GridLocation => Temperature,
-    colors: Iterable[(Temperature, Color)],
-    tile: Tile
-  ): Image = {
+  def visualizeGrid(grid: GridLocation => Temperature, colors: Iterable[(Temperature, Color)], tile: Tile): Image = {
+    val refSquare = 256
+    val pixels = visualizeGridScaledRawPixels(refSquare)(grid, colors, tile).map(Pixel(_))
+    Image(refSquare, refSquare, pixels)
+  }
+
+  def visualizeGridScaledRawPixels(refSquare: Int)(grid: GridLocation => Temperature,
+                                                   colors: Iterable[(Temperature, Color)],
+                                                   tile: Tile):  Array[Int] = {
 
     def tileOrdering: Ordering[(Tile, Any)] = Ordering[(Int, Int)].on(t => (t._1.y, t._1.x))
 
     def interpolateTileAsPixel(tile: Tile) : Pixel =
       Pixel(toRGB(interpolateColor(
-          colors,
-          bilinearInterpolation(
-            cellPoint(tile),
-            grid(gridLocationOffset(tile, 0,0)),
-            grid(gridLocationOffset(tile, 0,1)),
-            grid(gridLocationOffset(tile, 1,0)),
-            grid(gridLocationOffset(tile, 1,1))
-          )
+        colors,
+        bilinearInterpolation(
+          cellPoint(tile),
+          grid(gridLocationOffset(tile, 0,0)),
+          grid(gridLocationOffset(tile, 0,1)),
+          grid(gridLocationOffset(tile, 1,0)),
+          grid(gridLocationOffset(tile, 1,1))
+        )
       )))
 
-    val pixels : Array[Pixel] =  tile.subTiles(8)
+    tile
+      .subTiles(round(log(refSquare)/log(2.0)).toInt) // refSquare = 256 => 8,
+      .par
       .map( tile => (tile, interpolateTileAsPixel(tile)))
       .toArray
       .sorted(tileOrdering)
-      .map(_._2)
-
-    Image(256, 256, pixels)
+      .map(_._2.toInt)
   }
 
   def cellPoint(tile: Tile): CellPoint =

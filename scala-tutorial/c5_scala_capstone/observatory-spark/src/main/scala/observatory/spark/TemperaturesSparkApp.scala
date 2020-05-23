@@ -1,17 +1,18 @@
-package observatory
+package observatory.spark
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
 import java.io.File
 
-import Extraction._
-import Interaction._
 import com.sksamuel.scrimage.{Image, Pixel}
+import observatory.Extraction.{sparkLocateTemperatures, sparkLocationYearlyAverageRecords}
+import observatory.Interaction.{generateTilesSparkProcessingGraph, scaledTileRawPixels}
 import observatory.Main.timedOp
+import observatory._
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
 
 
-object MainTemperaturesSpark extends App { // TODO: extend from ObservatorySparkApp instead of App
+object TemperaturesSparkApp extends App { // TODO: extend from ObservatorySparkApp instead of App + remove redundant code
 
   val dataFolder = "hdfs:///scala-capstone-data/"
   val workerCount : Int = 2
@@ -52,7 +53,7 @@ object MainTemperaturesSpark extends App { // TODO: extend from ObservatorySpark
     generateTilesSparkProcessingGraph(
       tileZoomLevel,
       yearlyData,
-      saveTileAsImage(
+      generateAndSaveImage(
         refSquare = 128,
         scaleFactor = 2.0,
         sc.getConf.getBoolean("spark.observatory.tile.doSaveToLocalFS", defaultValue = true),
@@ -68,8 +69,8 @@ object MainTemperaturesSpark extends App { // TODO: extend from ObservatorySpark
       .persist()
   }
 
-  private def saveTileAsImage(refSquare: Int, scaleFactor: Double, doSaveToHDFS: Boolean, doSaveToLocalFS: Boolean)
-                             (yearLocatedAverages: RDD[((Year, Tile), (Year, Iterable[(Location, Temperature)]))]): Unit = {
+  private def generateAndSaveImage(refSquare: Int, scaleFactor: Double, doSaveToHDFS: Boolean, doSaveToLocalFS: Boolean)
+                                  (yearLocatedAverages: RDD[((Year, Tile), (Year, Iterable[(Location, Temperature)]))]): Unit = {
 
     val saveTileImageToHDFS = (year: Year, t: Tile, image: Image) => {
       val fs = FileSystem.get(sc.hadoopConfiguration)

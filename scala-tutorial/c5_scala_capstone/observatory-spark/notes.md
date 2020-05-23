@@ -9,7 +9,7 @@
     ./scripts/buildAndCopy.sh
     toolbox
     spark-submit \
-        --class observatory.MainTemperaturesSpark \
+        --class observatory.spark.TemperaturesSparkApp \
         --master yarn \
         --deploy-mode cluster \
         --driver-memory 512m  \
@@ -29,7 +29,7 @@
     ./scripts/buildAndCopy.sh
     toolbox
     spark-submit \
-        --class observatory.MainDeviationsSpark \
+        --class observatory.spark.DeviationsSparkApp \
         --master yarn \
         --deploy-mode cluster \
         --driver-memory 2g  \

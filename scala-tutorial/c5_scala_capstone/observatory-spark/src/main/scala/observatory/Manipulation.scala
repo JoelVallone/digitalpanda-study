@@ -10,8 +10,7 @@ import org.apache.spark.rdd.RDD
   */
 object Manipulation {
 
-
-  /**F
+  /**
     * @param temperatures Known temperatures
     * @return A function that, given a latitude in [-89, 90] and a longitude in [-180, 179],
     *         returns the predicted temperature at this location
@@ -22,15 +21,18 @@ object Manipulation {
   }
 
   def makeGridEager(temperatures: Iterable[(Location, Temperature)]): Map[GridLocation, Temperature] =
-    earthGrid().par
+    earthGrid()
+      .par
       .map(gLocation => gLocation -> predictTemperature(temperatures, gLocation.location))
       .toMap.seq
 
-  def loadGridFromSpark(tempForYear: RDD[(Year, Iterable[(Location, Temperature)])]): Map[GridLocation, Temperature] =
-    tempForYear.map(rdd => {
-      // In executor
-      makeGridEager(rdd._2)
-    }).first()
+  def computeGridInSparkAndLoad(tempForYear: RDD[(Year, Iterable[(Location, Temperature)])]): Map[GridLocation, Temperature] =
+    tempForYear
+      .map(rdd => {
+        // In Spark executor
+        makeGridEager(rdd._2)
+      })
+      .first()
 
   /**
     * @param temperatures Sequence of known temperatures over the years (each element of the collection
@@ -44,17 +46,18 @@ object Manipulation {
   def averageEager(temperatures: Iterable[Iterable[(Location, Temperature)]]): GridLocation => Temperature = {
     val tempGrids = temperatures.map(temperatures => makeGrid(temperatures))
     val numYears = temperatures.size
-    val gridAvgTemp = earthGrid().par
+    val gridAvgTemp = earthGrid()
+      .par
       .map( gLocation => gLocation -> tempGrids.map(_(gLocation)).sum / numYears)
       .toMap
     gLocation: GridLocation => gridAvgTemp(gLocation)
   }
 
-  def computeAverageGridInSparkAndLoad(temperatureOverYears: Iterable[RDD[(Year, Iterable[(Location, Temperature)])]]): Map[GridLocation, Temperature] = {
-    val tempGrids = temperatureOverYears.map(loadGridFromSpark)
-    val numYears = temperatureOverYears.size
-    earthGrid().par
-      .map( gLocation => gLocation -> tempGrids.map(_(gLocation)).sum / numYears)
+  def computeAverageTempGridInSparkAndLoad(temperatureRddOverYears: Iterable[RDD[(Year, Iterable[(Location, Temperature)])]]): Map[GridLocation, Temperature] = {
+    val tempGrids = temperatureRddOverYears.map(computeGridInSparkAndLoad)
+    earthGrid()
+      .par
+      .map( gLocation => gLocation -> tempGrids.map(_(gLocation)).sum / tempGrids.size)
       .toMap.seq
   }
 
@@ -63,23 +66,33 @@ object Manipulation {
     * @param normals A grid containing the “normal” temperatures
     * @return A grid containing the deviations compared to the normal temperatures
     */
-  def deviation(temperatures: Iterable[(Location, Temperature)], normals: GridLocation => Temperature): GridLocation => Temperature = {
+  def deviation(temperatures: Iterable[(Location, Temperature)],
+                normals: GridLocation => Temperature): GridLocation => Temperature = {
     val tempGrid = deviationEager(temperatures, normals)
     gLocation: GridLocation => tempGrid(gLocation)
   }
 
-  def deviationEager(temperatures: Iterable[(Location, Temperature)], normals: GridLocation => Temperature): Map[GridLocation, Temperature] = {
+  def deviationEager(temperatures: Iterable[(Location, Temperature)],
+                     normals: GridLocation => Temperature): Map[GridLocation, Temperature] = {
     val tempGrid = makeGrid(temperatures)
-    earthGrid().par
+    earthGrid()
+      .par
       .map( gLocation => gLocation -> (tempGrid(gLocation) - normals(gLocation)))
       .toMap.seq
   }
 
-  def computeDeviationsInSpark(temperaturesForYear: RDD[(Year, Iterable[(Location, Temperature)])],
-                               normalsMapBroadcast:  Broadcast[Map[GridLocation, Temperature]]): RDD[(Year, Map[GridLocation, Temperature])] =
-    temperaturesForYear
+  def computeDeviationGridsInSpark(temperatureRddOverYears:  Iterable[(Year, RDD[(Year, Iterable[(Location, Temperature)])])],
+                                   broadcastRefTempGrid:  Broadcast[Map[GridLocation, Temperature]]): Iterable[(Year, RDD[(Year, Map[GridLocation, Temperature])])] =
+    temperatureRddOverYears
+      .par
+      .map( p => (p._1, Manipulation.computeDeviationGridInSpark(p._2, broadcastRefTempGrid)))
+      .seq
+
+  def computeDeviationGridInSpark(temperaturesForYearRdd: RDD[(Year, Iterable[(Location, Temperature)])],
+                                  normalsMapBroadcast:  Broadcast[Map[GridLocation, Temperature]]): RDD[(Year, Map[GridLocation, Temperature])] =
+    temperaturesForYearRdd
       .mapValues(temperatures => {
-        // In executor
+        // In Spark executor
         val normalsMap = normalsMapBroadcast.value
         val normals = (gLocation: GridLocation) => normalsMap(gLocation)
         deviationEager(temperatures, normals)

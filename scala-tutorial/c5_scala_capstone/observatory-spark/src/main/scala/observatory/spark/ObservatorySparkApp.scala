@@ -1,8 +1,11 @@
-package observatory
+package observatory.spark
 
 import java.util.Calendar
 
+import com.sksamuel.scrimage.Image
 import observatory.Extraction.{sparkLocateTemperatures, sparkLocationYearlyAverageRecords}
+import observatory.{Location, Temperature, Tile, Year}
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
 
@@ -34,5 +37,16 @@ trait ObservatorySparkApp extends App{
       .groupBy(_ => year)  // only one year loaded in the rdd as the file loaded is specific for a year => RDD with only 1 row !
       .partitionBy(new HashPartitioner(1))
       .persist()
+  }
+
+  def saveTileImageToHDFS (hdfsDirpath: String, year: Year, t: Tile, image: Image): Unit = {
+    val fs = FileSystem.get(sc.hadoopConfiguration)
+    val hdfsOutputDir = new Path(s"$hdfsDirpath/$year/${t.zoom}")
+    val hdfsImagePath = new Path(s"$hdfsOutputDir/${t.x}-${t.y}.png")
+    println(s"Save image tile $t of year $year in HDFS: '$hdfsImagePath'")
+    if(!fs.exists(hdfsOutputDir)) fs.mkdirs(hdfsOutputDir)
+    val output = fs.create(hdfsImagePath)
+    output.write(image.bytes)
+    output.close()
   }
 }

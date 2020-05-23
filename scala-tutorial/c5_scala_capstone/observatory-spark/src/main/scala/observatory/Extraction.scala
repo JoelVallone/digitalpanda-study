@@ -2,7 +2,7 @@ package observatory
 
 import java.time.LocalDate
 
-import observatory.MainTemperaturesSpark.sc
+import observatory.spark.TemperaturesSparkApp.sc
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 
