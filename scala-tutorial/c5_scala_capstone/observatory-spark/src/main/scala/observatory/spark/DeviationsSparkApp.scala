@@ -45,7 +45,7 @@ object DeviationsSparkApp extends ObservatorySparkApp {
         tileZoomDepth,
         temperatureGridRddOverYears,
         generateAndSaveImage(refSquare = 128, scaleFactor = 2.0))
-    // Deviations total exec time: numYears *(45s  + ???s * tilePerYear)
+    // Deviations total exec time: numYears *(45s (temperatureRdd) + 180s (temperatureGrid + visualizeGridScaledRawPixels for all tiles (very fast)))
   }
 
   private def generateAndSaveImage(refSquare: Int, scaleFactor: Double)

@@ -12,9 +12,8 @@ object Interaction2 {
     */
   def availableLayers: Seq[Layer] =
     Seq(
-      Layer(LayerName.Temperatures, colorsAbsolute,   2011 to 2015)
-      //Layer(LayerName.Temperatures, colorsAbsolute,   1975 to 2015),
-      //Layer(LayerName.Deviations,   colorsDeviation,  1975 to 2015)
+      Layer(LayerName.Temperatures, colorsAbsolute,   1975 to 2015),
+      Layer(LayerName.Deviations,   colorsDeviation,  1990 to 2015)
     )
 
   /**
