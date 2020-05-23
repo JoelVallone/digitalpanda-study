@@ -3,36 +3,14 @@ package observatory.spark
 import java.io.File
 
 import com.sksamuel.scrimage.{Image, Pixel}
-import observatory.Extraction.{sparkLocateTemperatures, sparkLocationYearlyAverageRecords}
-import observatory.Interaction.{generateTilesSparkProcessingGraph, scaledTileRawPixels}
-import observatory.Main.timedOp
 import observatory._
-import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
 
 
-object TemperaturesSparkApp extends App { // TODO: extend from ObservatorySparkApp instead of App + remove redundant code
-
-  val dataFolder = "hdfs:///scala-capstone-data/"
-  val workerCount : Int = 2
-
-  import org.apache.log4j.{Level, Logger}
-  Logger.getLogger("org.apache.spark").setLevel(Level.DEBUG)
-
-  @transient lazy val conf: SparkConf = new SparkConf()
-    .setAppName("Observatory")
-    //https://stackoverflow.com/questions/42234447/running-from-a-local-ide-against-a-remote-spark-cluster
-    //.setMaster(s"fanless1.digitalpanda.org[$workerCount]")
-    //.set("spark.executor.memory", "1g")
-    //.set("spark.executor.cores", "1")
-    //.set("spark.driver.bindAddress", "fanless1.digitalpanda.org") // 192.168.1.1 or fanless1.digitalpanda.org
-   //val hdfs_master_uri : String = "hdfs://fanless1.digitalpanda.org"
-  @transient lazy val sc: SparkContext = new SparkContext(conf)
+// Reference: https://www.coursera.org/learn/scala-capstone/supplement/0i1IJ/milestone-interactive-visualization-in-a-web-app
+object TemperaturesSparkApp extends ObservatorySparkApp {
 
   timedOp("Compute tiles", computeTiles())
-  //println("press enter to stop application")
-  //scala.io.StdIn.readLine()
 
   def computeTiles(): Unit = {
 
@@ -40,17 +18,16 @@ object TemperaturesSparkApp extends App { // TODO: extend from ObservatorySparkA
     val toYear = sc.getConf.getInt("spark.observatory.tile.toYear", 1975)
     val tileZoomLevel = sc.getConf.getInt("spark.observatory.tile.ZoomDepth", defaultValue = 3)
 
-    //TODO: display number of  computed tiles in message, optimize memory footprint when many years
     println(s"Compute and save tiles for years $fromYear to $toYear with zoom-level $tileZoomLevel.")
 
     println(s"Load and average temperature data by location and year")
     val yearlyData : Iterable[(Year, RDD[(Year, Iterable[(Location, Temperature)])])] =
       (fromYear to toYear)
         .toStream
-        .map(year => (year, loadYearAverageData(year)))
+        .map(year => (year, loadYearAverageDataInSpark(year)))
 
     println(s"Generate & save tiles")
-    generateTilesSparkProcessingGraph(
+    Interaction.generateTilesSparkProcessingGraph(
       tileZoomLevel,
       yearlyData,
       generateAndSaveImage(
@@ -60,28 +37,8 @@ object TemperaturesSparkApp extends App { // TODO: extend from ObservatorySparkA
         sc.getConf.getBoolean("spark.observatory.tile.doSaveTilesToHDFS", defaultValue = false)))
     }
 
-  private def loadYearAverageData(year: Year): RDD[(Year, Iterable[(Location, Temperature)])] = {
-    sparkLocationYearlyAverageRecords(
-      sparkLocateTemperatures(year, s"$dataFolder/stations.csv", s"$dataFolder/$year.csv")
-    )
-      .groupBy(_ => year)
-      .partitionBy(new HashPartitioner(workerCount))
-      .persist()
-  }
-
   private def generateAndSaveImage(refSquare: Int, scaleFactor: Double, doSaveToHDFS: Boolean, doSaveToLocalFS: Boolean)
                                   (yearLocatedAverages: RDD[((Year, Tile), (Year, Iterable[(Location, Temperature)]))]): Unit = {
-
-    val saveTileImageToHDFS = (year: Year, t: Tile, image: Image) => {
-      val fs = FileSystem.get(sc.hadoopConfiguration)
-      val hdfsOutputDir = new Path(s"hdfs:///observatory/temperatures/$year/${t.zoom}")
-      val hdfsImagePath = new Path(s"$hdfsOutputDir/${t.x}-${t.y}.png")
-      println(s"Save image tile $t of year $year in HDFS: '$hdfsImagePath'")
-      if(!fs.exists(hdfsOutputDir)) fs.mkdirs(hdfsOutputDir)
-      val output = fs.create(hdfsImagePath)
-      output.write(image.bytes)
-      output.close()
-    }: Unit
 
     val saveTileImageToLocalFS = (year: Year, t: Tile, image: Image) => {
       val outputDir = new File(s"target/spark/temperatures/$year/${t.zoom}")
@@ -93,12 +50,12 @@ object TemperaturesSparkApp extends App { // TODO: extend from ObservatorySparkA
 
     yearLocatedAverages
       .map { case ((year: Year, tile: Tile), (_, data: Iterable[(Location, Temperature)])) =>
-        ((year, tile), scaledTileRawPixels(refSquare)(data, colorsAbsolute, tile))
+        ((year, tile), Interaction.scaledTileRawPixels(refSquare)(data, colorsAbsolute, tile))
       }
       .collect()
       .foreach { case ((year: Year, t: Tile), rawPixels: Array[Int]) =>
         val scaledImage = Image(refSquare, refSquare, rawPixels.map(Pixel(_))).scale(scaleFactor)
-        if (doSaveToHDFS) saveTileImageToHDFS(year, t, scaledImage)
+        if (doSaveToHDFS) saveTileImageToHDFS("hdfs:///observatory/temperatures", year, t, scaledImage)
         if (doSaveToLocalFS) saveTileImageToLocalFS(year, t, scaledImage)
       }
   }

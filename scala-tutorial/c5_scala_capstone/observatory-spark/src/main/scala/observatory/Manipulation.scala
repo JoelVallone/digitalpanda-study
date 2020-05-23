@@ -54,7 +54,11 @@ object Manipulation {
   }
 
   def computeAverageTempGridInSparkAndLoad(temperatureRddOverYears: Iterable[RDD[(Year, Iterable[(Location, Temperature)])]]): Map[GridLocation, Temperature] = {
-    val tempGrids = temperatureRddOverYears.map(computeGridInSparkAndLoad)
+    val tempGrids =
+      temperatureRddOverYears
+      .par
+      .map(computeGridInSparkAndLoad)
+
     earthGrid()
       .par
       .map( gLocation => gLocation -> tempGrids.map(_(gLocation)).sum / tempGrids.size)
@@ -97,6 +101,7 @@ object Manipulation {
         val normals = (gLocation: GridLocation) => normalsMap(gLocation)
         deviationEager(temperatures, normals)
       })
+      .persist()
 
   private def earthGrid(): Iterable[GridLocation] =
     for {

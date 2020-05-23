@@ -20,7 +20,7 @@
         --conf spark.observatory.tile.fromYear=1975 \
         --conf spark.observatory.tile.toYear=2015 \
         --conf spark.observatory.tile.ZoomDepth=3 \
-        --conf spark.observatory.tile.doSaveToLocalFS=true \
+        --conf spark.observatory.tile.doSaveToLocalFS=false \
         --conf spark.observatory.tile.doSaveTilesToHDFS=true \
         ${TOOLBOX_STATE}/observatory*.jar
     ```
@@ -32,7 +32,7 @@
         --class observatory.spark.DeviationsSparkApp \
         --master yarn \
         --deploy-mode cluster \
-        --driver-memory 2g  \
+        --driver-memory 512m  \
         --num-executors 2 \
         --executor-memory 4g \
         --executor-cores 2 \
@@ -42,14 +42,21 @@
         --conf spark.observatory.deviation.tile.fromYear=1990 \
         --conf spark.observatory.deviation.tile.toYear=2015 \
         --conf spark.observatory.deviation.tile.ZoomDepth=3 \
-        --conf spark.observatory.tile.doSaveToLocalFS=true \
-        --conf spark.observatory.tile.doSaveTilesToHDFS=true \
         ${TOOLBOX_STATE}/observatory*.jar
     ```
 
 * Kill spark application
 ```
 yarn application -kill application_1589635410569_0008
+```
+
+* dump data to visualisation .html
+```
+toolbox
+hadoop fs -copyToLocal /observatory/deviations ext/state/scala-capstone-output/
+exit
+cd ~/Documents/workplace/digitalpanda/digitalpanda-study/scala-tutorial/c5_scala_capstone/observatory/target
+scp -r panda-config@fanless1:/home/panda-config/panda-toolbox/state/scala-capstone-output/observatory/deviations .
 ```
 
 * Example spark job submit from toolbox:

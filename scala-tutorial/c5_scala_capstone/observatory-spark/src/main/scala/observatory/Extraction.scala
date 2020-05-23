@@ -2,8 +2,7 @@ package observatory
 
 import java.time.LocalDate
 
-import observatory.spark.TemperaturesSparkApp.sc
-import org.apache.spark.HashPartitioner
+import org.apache.spark.{HashPartitioner, SparkContext}
 import org.apache.spark.rdd.RDD
 
 import scala.io.Source
@@ -45,12 +44,13 @@ object Extraction {
       }).seq
   }
 
-  def sparkLocateTemperatures(year: Year,
+  def sparkLocateTemperatures(sc: SparkContext,
+                              year: Year,
                               stationsFilePath: String,
                               temperaturesFilePath: String): RDD[(LocalDate, Location, Temperature)] = {
 
-    val stations = sparkLoadStations(stationsFilePath)
-    val temperatures = sparkLoadTemperatures(temperaturesFilePath, year)
+    val stations = sparkLoadStations(sc, stationsFilePath)
+    val temperatures = sparkLoadTemperatures(sc, temperaturesFilePath, year)
     temperatures
       .join(stations)
       .map{ case (_,((date, temp), location)) => (date, location, temp)}
@@ -64,7 +64,7 @@ object Extraction {
       .map( opt => opt.get._1 -> opt.get._2)
       .toMap.seq
 
-  def sparkLoadStations(stationsFilePath : String): RDD[((String, String), Location)] =
+  def sparkLoadStations(sc: SparkContext, stationsFilePath : String): RDD[((String, String), Location)] =
     sc.textFile(stationsFilePath)
     .map(parseStationRow)
     .filter(c => c.isDefined)
@@ -95,7 +95,7 @@ object Extraction {
       .groupBy(_._1)
       .mapValues( v => v.map(_._2))
 
-  def sparkLoadTemperatures(temperaturesFilePath : String, year: Year): RDD[((String, String), (LocalDate, Temperature))] =
+  def sparkLoadTemperatures(sc: SparkContext, temperaturesFilePath : String, year: Year): RDD[((String, String), (LocalDate, Temperature))] =
       sc.textFile(temperaturesFilePath)
         .map(parseTemperatureRow(year))
         .filter(c => c.isDefined)
