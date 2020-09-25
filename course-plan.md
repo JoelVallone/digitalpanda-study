@@ -1,5 +1,11 @@
-37 w, 272 h, 800 usd
-
+# Candidates
+- ksql & kafka streams: https://www.confluent.io/training/ksql-apache-kafka-streams-processing/
+- lightbend:
+   - reactive architecture (theory): https://www.lightbend.com/learn/lightbend-reactive-architecture
+   - technologies classses https://www.lightbend.com/learn#technology
+   - academy: https://academy.lightbend.com/ (follow course-plan intro first.)
+   - ebooks: https://www.lightbend.com/ebooks
+# DONE
 Scala & Spark: 4w
  - 1) big-data-analysis-with-scala-and-spark, 4.7/1768, EPFL
     https://www.coursera.org/learn/scala-spark-big-data?specialization=scala
@@ -18,16 +24,9 @@ Scala: 8w
     4w, 8 h/w, 80 usd
     might already know a bit the content, but provides  good paractical exercices
  
-ML paractical: 2w
- - 3) structuring-machine-learning-projects, 4.8/24'053, Andrew-Ng
-    https://www.coursera.org/learn/machine-learning-projects
-    2w, 4 h/w, beginner, 40 usd
-    a bit repetitive when compared to previous courses
-    => Ask eduard if course can be taken idependently
-    => See if Fred. can do it first then get feedback ? 
-     
+
+# On hold
 ML theory: 23w
-    
  -  2) Machine learning, Columbia university
     https://www.edx.org/course/machine-learning
     12w, 9 h/w, advanced, 300 usd
@@ -49,3 +48,10 @@ ML theory: 23w
     4w, 5 h/w, intermediate, 80 usd
     Good overview over neural networks (already did that...), does not use libraries, easy
     
+ML paractical: 2w
+ - 3) structuring-machine-learning-projects, 4.8/24'053, Andrew-Ng
+    https://www.coursera.org/learn/machine-learning-projects
+    2w, 4 h/w, beginner, 40 usd
+    a bit repetitive when compared to previous courses
+    => Ask eduard if course can be taken idependently
+    => See if Fred. can do it first then get feedback ? 
