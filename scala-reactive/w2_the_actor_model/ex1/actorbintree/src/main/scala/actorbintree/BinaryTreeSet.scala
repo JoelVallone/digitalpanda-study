@@ -63,14 +63,30 @@ class BinaryTreeSet extends Actor:
 
   // optional
   /** Accepts `Operation` and `GC` messages. */
-  val normal: Receive = { case _ => ??? }
+  val normal: Receive = {
+    case op: Operation =>  root ! op
+    case GC => {
+      val newRoot = createRoot
+      root ! CopyTo(newRoot)
+      context.become(garbageCollecting(newRoot))
+    }
+    case _ => // nil
+  }
 
   // optional
   /** Handles messages while garbage collection is performed.
     * `newRoot` is the root of the new binary tree where we want to copy
     * all non-removed elements into.
     */
-  def garbageCollecting(newRoot: ActorRef): Receive = ???
+  def garbageCollecting(newRoot: ActorRef): Receive = {
+    case op: Operation => pendingQueue = pendingQueue.enqueue(op)
+    case CopyFinished => {
+      pendingQueue.foreach(newRoot!_)
+      root = newRoot
+      context.become(receive)
+    }
+    case _ => // nil
+  }
 
 
 object BinaryTreeNode:
@@ -96,17 +112,91 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor:
   var subtrees = Map[Position, ActorRef]()
   var removed = initiallyRemoved
 
+  def childInsert(pos: Position, insert: Insert) : Unit =
+    if (subtrees.contains(pos)) {
+      subtrees(pos) ! insert
+    } else {
+      subtrees += (pos -> context.actorOf(Props(new BinaryTreeNode(insert.elem, false))))
+      insert.requester ! OperationFinished(insert.id)
+    }
+
+  def hasChildWhich(pos: Position, contains: Operation) : Unit =
+    if (subtrees.contains(pos)) {
+      subtrees(pos) ! contains
+    } else {
+      contains.requester ! ContainsResult(contains.id, false)
+    }
+
+  def childRemove(pos: Position, remove: Operation) : Unit =
+    if (subtrees.contains(pos)) {
+      subtrees(pos) ! remove
+    } else {
+      remove.requester ! OperationFinished(remove.id)
+    }
+
   // optional
   def receive = normal
 
   // optional
   /** Handles `Operation` messages and `CopyTo` requests. */
-  val normal: Receive = { case _ => ??? }
+  val normal: Receive = {
+    case op: Insert =>
+        if (elem == op.elem) {
+          removed = false
+          op.requester ! OperationFinished(op.id)
+        } else if (op.elem < elem) {
+          childInsert(Left, op)
+        } else {
+          childInsert(Right, op)
+        }
+    case op: Contains =>
+      if (elem == op.elem) {
+        op.requester ! ContainsResult(op.id, !removed)
+      } else if (op.elem < elem) {
+        hasChildWhich(Left, op)
+      } else {
+        hasChildWhich(Right, op)
+      }
+    case op: Remove =>
+      if (elem == op.elem) {
+        removed = true
+        op.requester ! OperationFinished(op.id)
+      } else if (op.elem < elem) {
+        childRemove(Left, op)
+      } else {
+        childRemove(Right, op)
+      }
+    case CopyTo(treeNode) => {
+      if (!removed) {
+        treeNode ! Insert(self, 0, elem)
+      }
+      subtrees.foreach{ case (_, subtree) => subtree ! CopyTo(treeNode)}
+      context.become(copying(subtrees.values.toSet, false))
+    }
+    case _ => // nil
+  }
 
   // optional
   /** `expected` is the set of ActorRefs whose replies we are waiting for,
     * `insertConfirmed` tracks whether the copy of this node to the new tree has been confirmed.
     */
-  def copying(expected: Set[ActorRef], insertConfirmed: Boolean): Receive = ???
+  def copying(expected: Set[ActorRef], insertConfirmed: Boolean): Receive = {
+    case CopyFinished =>
+      if (expected.size <=1 && expected(sender) && insertConfirmed) {
+        context.parent ! CopyFinished
+        context.stop(self)
+      } else {
+        context.become(copying(expected - sender, insertConfirmed))
+      }
+    case OperationFinished => {
+      if (expected.isEmpty) {
+        context.parent ! CopyFinished
+        context.stop(self)
+      } else {
+        context.become(copying(expected, true))
+      }
+    }
+    case _ => // nil
+  }
 
 
