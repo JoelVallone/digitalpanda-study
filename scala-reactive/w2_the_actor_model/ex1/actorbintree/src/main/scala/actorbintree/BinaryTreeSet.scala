@@ -47,7 +47,7 @@ object BinaryTreeSet:
 
 
 
-class BinaryTreeSet extends Actor:
+class BinaryTreeSet extends Actor with ActorLogging with Stash :
   import BinaryTreeSet.*
   import BinaryTreeNode.*
 
@@ -64,8 +64,12 @@ class BinaryTreeSet extends Actor:
   // optional
   /** Accepts `Operation` and `GC` messages. */
   val normal: Receive = {
-    case op: Operation =>  root ! op
+    case op: Operation =>  {
+      log.debug(s"Run: Operation(${op.id},${op.elem}) ")
+      root ! op
+    }
     case GC => {
+      log.debug("Start garbage collection")
       val newRoot = createRoot
       root ! CopyTo(newRoot)
       context.become(garbageCollecting(newRoot))
@@ -79,11 +83,20 @@ class BinaryTreeSet extends Actor:
     * all non-removed elements into.
     */
   def garbageCollecting(newRoot: ActorRef): Receive = {
-    case op: Operation => pendingQueue = pendingQueue.enqueue(op)
+    case op: Operation => {
+      pendingQueue = pendingQueue.enqueue(op)
+      log.debug(s"Queued (${pendingQueue.size}): Operation(${op.id},${op.elem}) ")
+      //stash()
+    }
     case CopyFinished => {
-      pendingQueue.foreach(newRoot!_)
+      log.debug(s"CopyFinished: run ${pendingQueue.size} queued operations")
       root = newRoot
-      context.become(receive)
+      pendingQueue.foreach(op => root ! op)
+      pendingQueue = Queue.empty[Operation]
+      log.debug("Operations catchup finished")
+      log.debug("Finished garbage collection")
+      context.unbecome()
+      //unstashAll()
     }
     case _ => // nil
   }
@@ -105,7 +118,7 @@ object BinaryTreeNode:
 
   def props(elem: Int, initiallyRemoved: Boolean) = Props(classOf[BinaryTreeNode],  elem, initiallyRemoved)
 
-class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor:
+class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor with ActorLogging :
   import BinaryTreeNode.*
   import BinaryTreeSet.*
 
@@ -116,7 +129,7 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor:
     if (subtrees.contains(pos)) {
       subtrees(pos) ! insert
     } else {
-      subtrees += (pos -> context.actorOf(Props(new BinaryTreeNode(insert.elem, false))))
+      subtrees += (pos -> context.actorOf(BinaryTreeNode.props(insert.elem, false)))
       insert.requester ! OperationFinished(insert.id)
     }
 
@@ -141,15 +154,17 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor:
   /** Handles `Operation` messages and `CopyTo` requests. */
   val normal: Receive = {
     case op: Insert =>
-        if (elem == op.elem) {
-          removed = false
-          op.requester ! OperationFinished(op.id)
-        } else if (op.elem < elem) {
-          childInsert(Left, op)
-        } else {
-          childInsert(Right, op)
-        }
+      if (elem == 0) log.debug(s"Insert(${op.id},${op.elem})")
+      if (elem == op.elem) {
+        removed = false
+        op.requester ! OperationFinished(op.id)
+      } else if (op.elem < elem) {
+        childInsert(Left, op)
+      } else {
+        childInsert(Right, op)
+      }
     case op: Contains =>
+      if (elem == 0) log.debug(s"Contains(${op.id},${op.elem})")
       if (elem == op.elem) {
         op.requester ! ContainsResult(op.id, !removed)
       } else if (op.elem < elem) {
@@ -158,6 +173,7 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor:
         hasChildWhich(Right, op)
       }
     case op: Remove =>
+      if (elem == 0) log.debug(s"Remove(${op.id},${op.elem})")
       if (elem == op.elem) {
         removed = true
         op.requester ! OperationFinished(op.id)
@@ -167,11 +183,17 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor:
         childRemove(Right, op)
       }
     case CopyTo(treeNode) => {
+      log.debug(s"BinaryTreeNode($elem,$removed)!CopyTo($treeNode)")
       if (!removed) {
         treeNode ! Insert(self, 0, elem)
       }
       subtrees.foreach{ case (_, subtree) => subtree ! CopyTo(treeNode)}
-      context.become(copying(subtrees.values.toSet, false))
+
+      if (removed && subtrees.isEmpty) { // corner case when only the empty root exists
+        sender ! CopyFinished
+      } else {
+        context.become(copying(subtrees.values.toSet, insertConfirmed=removed))
+      }
     }
     case _ => // nil
   }
@@ -188,7 +210,7 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor:
       } else {
         context.become(copying(expected - sender, insertConfirmed))
       }
-    case OperationFinished => {
+    case o: OperationFinished => {
       if (expected.isEmpty) {
         context.parent ! CopyFinished
         context.stop(self)
@@ -196,7 +218,8 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor:
         context.become(copying(expected, true))
       }
     }
-    case _ => // nil
+    case t =>
+      log.debug(s"PROBLEM:BinaryTreeNode($elem,$removed)!_$t")
   }
 
 
