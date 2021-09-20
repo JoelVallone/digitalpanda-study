@@ -13,8 +13,13 @@ object Replicator:
   case class Snapshot(key: String, valueOption: Option[String], seq: Long)
   case class SnapshotAck(key: String, seq: Long)
 
+  case class ResendReplicates()
+
   def props(replica: ActorRef): Props = Props(Replicator(replica))
 
+/*
+  - one replicator per secondary replica
+ */
 class Replicator(val replica: ActorRef) extends Actor:
   import Replicator.*
   import context.dispatcher
@@ -34,8 +39,22 @@ class Replicator(val replica: ActorRef) extends Actor:
     _seqCounter += 1
     ret
 
-  
+  context.system.scheduler.scheduleAtFixedRate(100.milliseconds, 100.milliseconds, self, ResendReplicates)
+
   /* TODO Behavior for the Replicator. */
-  def receive: Receive =
+  def receive: Receive = {
+    case r: Replicate => {
+      val seq = nextSeq()
+      acks = acks + (seq -> (sender, Replicate(r.key, r.valueOption, r.id)))
+      val snapshot = Snapshot(r.key, r.valueOption, seq)
+      replica ! snapshot
+    }
+    case SnapshotAck(key, seq) => {
+      acks.get(seq).foreach{ case (sender, r) => sender ! Replicated(r.key, r.id)}
+      acks = acks - seq
+    }
+    case ResendReplicates =>
+      acks.foreach{ case (seq, (sender, r)) => replica ! Snapshot(r.key, r.valueOption, seq) }
     case _ =>
+  }
 

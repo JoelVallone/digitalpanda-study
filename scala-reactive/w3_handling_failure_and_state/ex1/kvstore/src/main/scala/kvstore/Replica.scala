@@ -5,6 +5,7 @@ import kvstore.Arbiter.*
 import akka.pattern.{ ask, pipe }
 import scala.concurrent.duration.*
 import akka.util.Timeout
+import java.lang.Math.max
 
 object Replica:
   sealed trait Operation:
@@ -37,17 +38,55 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
   // the current set of replicators
   var replicators = Set.empty[ActorRef]
 
+  override def preStart(): Unit = {
+    super.preStart()
+    arbiter ! Join
+  }
 
   def receive =
     case JoinedPrimary   => context.become(leader)
     case JoinedSecondary => context.become(replica)
 
   /* TODO Behavior for  the leader role. */
-  val leader: Receive =
+  val leader: Receive = {
+    case Insert(key, value, id) => {
+      kv = kv + (key -> value)
+      sender ! OperationAck(id)
+    }
+    case Remove(key, id) => {
+      kv = kv - key
+      sender ! OperationAck(id)
+    }
+    case Get(key, id) => {
+      sender ! GetResult(key, kv.get(key), id)
+    }
+    case _ =>
+  }
+
+  
+  var expectedSeq = 0L
+  
+  /* TODO Behavior for the replica role. */
+  val replica: Receive = {
+    case Snapshot(key, valOpt, seq) => {
+      if (seq == expectedSeq) {
+        valOpt match {
+          case None => kv = kv - key
+          case Some(value) => kv = kv + (key -> value)
+        }    
+      }
+      
+      if (seq <= expectedSeq) {
+        expectedSeq = max(expectedSeq, seq + 1)
+        sender ! SnapshotAck(key, seq)
+      }
+    }
+    case Get(key, id) => {
+      sender ! GetResult(key, kv.get(key), id)
+    }
+
     case _ =>
 
-  /* TODO Behavior for the replica role. */
-  val replica: Receive =
-    case _ =>
+  }
 
 
