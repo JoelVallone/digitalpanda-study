@@ -20,6 +20,9 @@ object Replica:
   case class OperationFailed(id: Long) extends OperationReply
   case class GetResult(key: String, valueOption: Option[String], id: Long) extends OperationReply
 
+
+  case class ResendStore(key: String)
+
   def props(arbiter: ActorRef, persistenceProps: Props): Props = Props(Replica(arbiter, persistenceProps))
 
 class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
@@ -37,6 +40,8 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
   var secondaries = Map.empty[ActorRef, ActorRef]
   // the current set of replicators
   var replicators = Set.empty[ActorRef]
+
+  val persistence = context.actorOf(persistenceProps)
 
   override def preStart(): Unit = {
     super.preStart()
@@ -68,25 +73,46 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
   
   /* TODO Behavior for the replica role. */
   val replica: Receive = {
-    case Snapshot(key, valOpt, seq) => {
-      if (seq == expectedSeq) {
-        valOpt match {
-          case None => kv = kv - key
-          case Some(value) => kv = kv + (key -> value)
-        }    
-      }
-      
-      if (seq <= expectedSeq) {
-        expectedSeq = max(expectedSeq, seq + 1)
-        sender ! SnapshotAck(key, seq)
+    case s: Snapshot => {
+      if (s.seq < expectedSeq) {
+        sender ! SnapshotAck(s.key, s.seq)
+      } else if (s.seq == expectedSeq) {
+        scheduleStore(sender, Persist(s.key, s.valueOption, s.seq))
+        expectedSeq = max(expectedSeq, s.seq + 1)
+        s.valueOption match {
+          case None => kv = kv - s.key
+          case Some(value) => kv = kv + (s.key -> value)
+        }
       }
     }
+
+    case p: Persisted => {
+      val (sender, persist) = inFlightPersist(p.key)
+      val seq = persist.id
+      sender ! SnapshotAck(persist.key, seq)
+      inFlightPersist = inFlightPersist - p.key
+    }
+
+    case ResendStore(key) => {
+      inFlightPersist.get(key) match {
+        case Some((sender, persist)) => scheduleStore(sender, persist)
+        case None => //nil
+      }
+    }
+
     case Get(key, id) => {
       sender ! GetResult(key, kv.get(key), id)
     }
 
     case _ =>
+  }
 
+  var inFlightPersist = Map.empty[String, (ActorRef, Persist)]
+
+  def scheduleStore(sender: ActorRef, p: Persist): Unit = {
+    persistence ! p
+    inFlightPersist = inFlightPersist + (p.key -> (sender,p))
+    context.system.scheduler.scheduleOnce(100.milliseconds, self, ResendStore(p.key))
   }
 
 
