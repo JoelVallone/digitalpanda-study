@@ -20,6 +20,7 @@ object Replica:
   case class OperationFailed(id: Long) extends OperationReply
   case class GetResult(key: String, valueOption: Option[String], id: Long) extends OperationReply
 
+  case class OperationTimeout(id: Long)
 
   case class ResendStore(key: String)
 
@@ -40,9 +41,11 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
 
   def receive =
     case JoinedPrimary   => {
+      val replicator = context.actorOf(Replicator.props(self))
+      secondaries += (self, replicator)
+      replicators += replicator
+
       context.become(leader)
-      secondaries += (self, context.actorOf(Replicator.props(self)))
-      replicators += self
     }
     case JoinedSecondary => context.become(replica)
 
@@ -57,22 +60,24 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
   //TODO: test+fix primary persistence & replication
   val leader: Receive = {
     case Insert(key, value, id) => {
+      System.out.println(s"leader received: Insert${(key, value, id)}")
       kv += (key -> value)
-      //sender ! OperationAck(id)
-      // // forwardStore(Persist(key, Some(value), id))
-      replicators.foreach( r =>  r.forward(Replicate(key, Some(value), id)))
+      replicators.foreach(_ ! Replicate(key, Some(value), id))
       inFlightReplications += (id, (sender(), replicators))
+      context.system.scheduler.scheduleOnce(1000.milliseconds, self, OperationTimeout(id))
     }
+
     case Remove(key, id) => {
+      System.out.println(s"leader received: Remove${(key, id)}")
       kv -= key
-      //sender ! OperationAck(id)
-      // // forwardStore(Persist(key, None, id))
-      replicators.foreach( r =>  r.forward(Replicate(key, None, id)))
+      replicators.foreach(_ ! Replicate(key, None, id))
       inFlightReplications += (id, (sender(), replicators))
+      context.system.scheduler.scheduleOnce(1000.milliseconds, self, OperationTimeout(id))
     }
 
     // TODO: check write ordering: last write request wins... Replicator.__seqCounter should do the trick
-    case Replicated(key, id) => {
+    case Replicated(key, id) if inFlightReplications.contains(id) => {
+      System.out.println(s"leader received: Replicated${(key, id)} from ${sender()}")
       val inFlightReplicationUpdate = (inFlightReplications(id)._1, inFlightReplications(id)._2 - sender())
       if (inFlightReplicationUpdate._2.isEmpty) {
         inFlightReplicationUpdate._1 ! OperationAck(id)
@@ -81,25 +86,33 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
         inFlightReplications += (id, inFlightReplicationUpdate)
       }
     }
-    /*
-    case Get(key, id) => {
-      sender ! GetResult(key, kv.get(key), id)
-    }*/
+    case Replicated(key, id) if !inFlightReplications.contains(id) => {
+      System.out.println(s"leader received: Replicated${(key, id)} from ${sender()} but TOO LATE")
+    }
+
+    case OperationTimeout(id)  => {
+      if (inFlightReplications.contains(id)) {
+        inFlightReplications(id)._1 ! OperationFailed(id)
+        inFlightReplications -= id
+      }
+    }
+
     case Replicas(newReplicas: Set[ActorRef]) => {
+      System.out.println(s"Received replicas: $newReplicas")
       //Update tracking structures for join and leave
+      //TODO: Handle transmission of full initial state to new replica
       val addedReplicas = newReplicas -- secondaries.keySet
       val newSecondaries = addedReplicas.map(newReplica => (newReplica, context.actorOf(Replicator.props(newReplica)))).toMap
       secondaries ++= newSecondaries
       replicators ++= newSecondaries.values.toSet
 
+      //TODO: Handle replication tracking halt to removed replica
       val removedSecondaries = secondaries -- newReplicas
       removedSecondaries.foreach{ (_, replicator) => context.stop(replicator)}
       secondaries --= removedSecondaries.keySet
       replicators --= removedSecondaries.values.toSet
-
-
-      //TODO: Handle transmission of initial state to new replica
     }
+
     case message => replica(message) // A leader also behaves as a replica (persistence and get)
   }
 
@@ -113,6 +126,7 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
 
   val replica: Receive = {
     case Get(key, id) => {
+      System.out.println(s"received: Get${(key, id)}")
       sender ! GetResult(key, kv.get(key), id)
     }
 
@@ -121,6 +135,7 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
 
   val persistenceHandler: Receive = {
     case s: Snapshot => {
+      System.out.println(s"received: $s")
       if (s.seq < expectedSeq) {
         sender ! SnapshotAck(s.key, s.seq)
       } else if (s.seq == expectedSeq) {
@@ -128,19 +143,23 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
         forwardStore(Persist(s.key, s.valueOption, s.seq))
       }
     }
+
     case p: Persisted => {
       val (sender, persist) = inFlightPersist(p.key)
       val seq = persist.id
       sender ! SnapshotAck(persist.key, seq)
       inFlightPersist -= p.key
     }
+
     case r: ResendStore => {
       inFlightPersist.get(r.key) match {
         case Some((sender, persist)) => scheduleStoreRetry(sender, persist)
         case None => //nil
       }
     }
-    case _ =>
+
+    case unknownMessage =>
+      System.out.println(s"received UNKNWON message: $unknownMessage")
   }
 
   def forwardStore(p: Persist): Unit = {
