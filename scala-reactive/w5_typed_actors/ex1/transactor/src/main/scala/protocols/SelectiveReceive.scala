@@ -20,8 +20,18 @@ object SelectiveReceive:
     *        Use [[Behavior.validateAsInitial]] to make sure that `initialBehavior` is a
     *        valid initial behavior.
     */
-  def apply[T: ClassTag](bufferCapacity: Int, initialBehavior: Behavior[T]): Behavior[T] =
-    ???
+  def apply[T: ClassTag](bufferCapacity: Int, initialBehavior: Behavior[T]): Behavior[T] = {
+
+    if (bufferCapacity == 0) {
+      Behaviors.same
+    }
+
+    try {
+      Behaviors.withStash(bufferCapacity)(intercept(bufferCapacity, _, Behavior.validateAsInitial(initialBehavior)))
+    } catch {
+      case _: IllegalArgumentException => initialBehavior
+    }
+  }
 
   /**
    * @return A behavior that interprets the incoming messages with the supplied `started`
@@ -46,6 +56,12 @@ object SelectiveReceive:
       // return an unchanged behavior. Otherwise, return a behavior resulting from
       // “unstash-ing” all the stashed messages to the next behavior wrapped in an `SelectiveReceive`
       // interceptor.
-      ???
+      val nextBehavior = Behavior.interpretMessage(started, ctx, message)
+      if (Behavior.isUnhandled(nextBehavior)) {
+        buffer.stash(message)
+        Behaviors.same
+      } else {
+        buffer.unstashAll(SelectiveReceive(bufferSize, Behavior.canonicalize(nextBehavior, started, ctx)))
+      }
     }
 
