@@ -17,19 +17,12 @@ object Replicator:
 
   def props(replica: ActorRef): Props = Props(Replicator(replica))
 
-/*
-  - one replicator per secondary replica
- */
+// One replicator per Replica
 class Replicator(val replica: ActorRef) extends Actor:
   import Replicator.*
   import context.dispatcher
-  
-  /*
-   * The contents of this actor is just a suggestion, you can implement it in any way you like.
-   */
 
-  // map from sequence number to pair of sender and request
-  var acks = Map.empty[Long, (ActorRef, Replicate)]
+  var acks = Map.empty[Long, (ActorRef, Replicate)] // seq -> (sender, Replicate request)
   // a sequence of not-yet-sent snapshots (you can disregard this if not implementing batching)
   var pending = Vector.empty[Snapshot]
   
@@ -41,7 +34,6 @@ class Replicator(val replica: ActorRef) extends Actor:
 
   context.system.scheduler.scheduleAtFixedRate(100.milliseconds, 100.milliseconds, self, ResendReplicates)
 
-  /* TODO Behavior for the Replicator. */
   def receive: Receive = {
     case r: Replicate => {
       val seq = nextSeq()

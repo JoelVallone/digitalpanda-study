@@ -57,7 +57,6 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
   var replicators = Set.empty[ActorRef]
   var inFlightReplications = Map.empty[Long, (ActorRef, Set[ActorRef])] // (Operation.id -> (operation sender, Set(Replicator)))
 
-  //TODO: test+fix primary persistence & replication
   val leader: Receive = {
     case Insert(key, value, id) => {
       System.out.println(s"leader received: Insert${(key, value, id)}")
@@ -75,19 +74,15 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
       context.system.scheduler.scheduleOnce(1000.milliseconds, self, OperationTimeout(id))
     }
 
-    // TODO: check write ordering: last write request wins... Replicator.__seqCounter should do the trick
     case Replicated(key, id) if inFlightReplications.contains(id) => {
       System.out.println(s"leader received: Replicated${(key, id)} from ${sender()}")
-      val inFlightReplicationUpdate = (inFlightReplications(id)._1, inFlightReplications(id)._2 - sender())
-      if (inFlightReplicationUpdate._2.isEmpty) {
-        inFlightReplicationUpdate._1 ! OperationAck(id)
-        inFlightReplications -= id
-      } else {
-        inFlightReplications += (id, inFlightReplicationUpdate)
-      }
+      decrementInFlightReplication(id, sender())
     }
-    case Replicated(key, id) if !inFlightReplications.contains(id) => {
+    case Replicated(key, id) if id != -1 &&  !inFlightReplications.contains(id) => {
       System.out.println(s"leader received: Replicated${(key, id)} from ${sender()} but TOO LATE")
+    }
+    case Replicated(key, id) if id == -1 => {
+      System.out.println(s"leader received: Replicated${(key, id)} from ${sender()} new replica")
     }
 
     case OperationTimeout(id)  => {
@@ -100,20 +95,34 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
     case Replicas(newReplicas: Set[ActorRef]) => {
       System.out.println(s"Received replicas: $newReplicas")
       //Update tracking structures for join and leave
-      //TODO: Handle transmission of full initial state to new replica
       val addedReplicas = newReplicas -- secondaries.keySet
       val newSecondaries = addedReplicas.map(newReplica => (newReplica, context.actorOf(Replicator.props(newReplica)))).toMap
       secondaries ++= newSecondaries
       replicators ++= newSecondaries.values.toSet
+      newSecondaries.foreach( (_, replicator) => {
+        kv.foreach((key, value) => replicator ! Replicate(key, Some(value), -1))
+      })
 
-      //TODO: Handle replication tracking halt to removed replica
       val removedSecondaries = secondaries -- newReplicas
-      removedSecondaries.foreach{ (_, replicator) => context.stop(replicator)}
       secondaries --= removedSecondaries.keySet
       replicators --= removedSecondaries.values.toSet
+      removedSecondaries.foreach( (_, replicator) => {
+        context.stop(replicator)
+        inFlightReplications.foreach((id, _) => decrementInFlightReplication(id, replicator))
+      })
     }
 
-    case message => replica(message) // A leader also behaves as a replica (persistence and get)
+    case message => replica(message) // A leader also behaves as a replica for persistence and get
+  }
+
+  def decrementInFlightReplication(id: Long, doneReplicator: ActorRef): Unit = {
+    val inFlightReplicationUpdate = (inFlightReplications(id)._1, inFlightReplications(id)._2 - doneReplicator)
+    if (inFlightReplicationUpdate._2.isEmpty) {
+      inFlightReplicationUpdate._1 ! OperationAck(id)
+      inFlightReplications -= id
+    } else {
+      inFlightReplications += (id, inFlightReplicationUpdate)
+    }
   }
 
 
@@ -139,7 +148,6 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
       if (s.seq < expectedSeq) {
         sender ! SnapshotAck(s.key, s.seq)
       } else if (s.seq == expectedSeq) {
-        expectedSeq = max(expectedSeq, s.seq + 1)
         forwardStore(Persist(s.key, s.valueOption, s.seq))
       }
     }
@@ -149,6 +157,7 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor:
       val seq = persist.id
       sender ! SnapshotAck(persist.key, seq)
       inFlightPersist -= p.key
+      expectedSeq = max(expectedSeq, seq + 1)
     }
 
     case r: ResendStore => {
