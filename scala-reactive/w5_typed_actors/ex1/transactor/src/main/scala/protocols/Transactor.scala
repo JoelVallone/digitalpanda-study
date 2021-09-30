@@ -31,7 +31,11 @@ object Transactor:
     *                       terminating the session
     */
   def apply[T](value: T, sessionTimeout: FiniteDuration): Behavior[Command[T]] =
-      ???
+    SelectiveReceive(30,
+      Behaviors.empty
+      // TODO: Find a way to initialize the Transactor !
+      //idle[T](value, sessionTimeout)
+    )
 
   /**
     * @return A behavior that defines how to react to any [[PrivateCommand]] when the transactor
@@ -54,7 +58,15 @@ object Transactor:
     *   - Messages other than [[Begin]] should not change the behavior.
     */
   private def idle[T](value: T, sessionTimeout: FiniteDuration): Behavior[PrivateCommand[T]] =
-    ???
+    Behaviors.receive{
+      case (ctx, b: Begin[T]) => {
+        val session = ctx.spawnAnonymous(sessionHandler[T](value, ctx.self, Set()))
+        ctx.scheduleOnce(sessionTimeout, session, Rollback[T]())
+        ctx.watchWith(session, RolledBack(session))
+        b.replyTo ! session
+        inSession(value, sessionTimeout, session)
+      } case (ctx, _) =>  Behaviors.same // TODO: or Behaviors.unhandled
+    }
 
   /**
     * @return A behavior that defines how to react to [[PrivateCommand]] messages when the transactor has
@@ -66,8 +78,25 @@ object Transactor:
     * @param sessionTimeout Timeout to use for the next session
     * @param sessionRef Reference to the child [[Session]] actor
     */
-  private def inSession[T](rollbackValue: T, sessionTimeout: FiniteDuration, sessionRef: ActorRef[Session[T]]): Behavior[PrivateCommand[T]] =
-    ???
+  private def inSession[T](rollbackValue: T,
+                           sessionTimeout: FiniteDuration,
+                           sessionRef: ActorRef[Session[T]]): Behavior[PrivateCommand[T]] = Behaviors.receive{
+    case (ctx, c: Committed[T]) => {
+      if (sessionRef == c.session) {
+        idle(c.value, sessionTimeout)
+      } else {
+        Behaviors.same
+      }
+    }
+    case (ctx, c: RolledBack[T]) => {
+      if (sessionRef == c.session) {
+        idle(rollbackValue, sessionTimeout)
+      } else {
+        Behaviors.same
+      }
+    }
+    case (ctx, _) => Behaviors.unhandled
+  }
 
   /**
     * @return A behavior handling [[Session]] messages. See in the instructions
@@ -77,6 +106,8 @@ object Transactor:
     * @param commit Parent actor reference, to send the [[Committed]] message to
     * @param done Set of already applied [[Modify]] messages
     */
-  private def sessionHandler[T](currentValue: T, commit: ActorRef[Committed[T]], done: Set[Long]): Behavior[Session[T]] =
+  private def sessionHandler[T](currentValue: T,
+                                commit: ActorRef[Committed[T]],
+                                done: Set[Long]): Behavior[Session[T]] =
       ???
 
