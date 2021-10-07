@@ -32,9 +32,8 @@ object Transactor:
     */
   def apply[T](value: T, sessionTimeout: FiniteDuration): Behavior[Command[T]] =
     SelectiveReceive(30,
-      Behaviors.empty
       // TODO: Find a way to initialize the Transactor !
-      //idle[T](value, sessionTimeout)
+      ??? // idle[T](value, sessionTimeout)
     )
 
   /**
@@ -59,11 +58,11 @@ object Transactor:
     */
   private def idle[T](value: T, sessionTimeout: FiniteDuration): Behavior[PrivateCommand[T]] =
     Behaviors.receive{
-      case (ctx, b: Begin[T]) => {
+      case (ctx, Begin(replyTo)) => {
         val session = ctx.spawnAnonymous(sessionHandler[T](value, ctx.self, Set()))
         ctx.scheduleOnce(sessionTimeout, session, Rollback[T]())
         ctx.watchWith(session, RolledBack(session))
-        b.replyTo ! session
+        replyTo ! session
         inSession(value, sessionTimeout, session)
       } case (ctx, _) =>  Behaviors.same // TODO: or Behaviors.unhandled
     }
@@ -81,15 +80,16 @@ object Transactor:
   private def inSession[T](rollbackValue: T,
                            sessionTimeout: FiniteDuration,
                            sessionRef: ActorRef[Session[T]]): Behavior[PrivateCommand[T]] = Behaviors.receive{
-    case (ctx, c: Committed[T]) => {
-      if (sessionRef == c.session) {
-        idle(c.value, sessionTimeout)
+    case (ctx, Committed(session, newValue)) => {
+      if (sessionRef == session) {
+        idle(newValue, sessionTimeout)
       } else {
         Behaviors.same
       }
     }
-    case (ctx, c: RolledBack[T]) => {
-      if (sessionRef == c.session) {
+    case (ctx, RolledBack(session)) => {
+      if (sessionRef == session) {
+        ctx.stop(sessionRef)
         idle(rollbackValue, sessionTimeout)
       } else {
         Behaviors.same
@@ -108,6 +108,29 @@ object Transactor:
     */
   private def sessionHandler[T](currentValue: T,
                                 commit: ActorRef[Committed[T]],
-                                done: Set[Long]): Behavior[Session[T]] =
-      ???
+                                done: Set[Long]): Behavior[Session[T]] = Behaviors.receive {
+    case (ctx, Extract(f, replyTo)) => {
+      replyTo ! f(currentValue)
+      Behaviors.same
+    }
+    case (ctx, Modify(f, id, reply, replyTo)) => {
+      if (!done.contains(id)) {
+        val newValue = f(currentValue)
+        replyTo ! reply
+        sessionHandler(newValue, commit, done + id)
+      } else {
+        replyTo ! reply
+        Behaviors.same
+      }
+    }
+    case (ctx, Commit(reply, replyTo)) => {
+      commit ! Committed(ctx.self, currentValue)
+      replyTo ! reply
+      Behaviors.stopped
+    }
+    case (ctx, Rollback()) => {
+      Behaviors.stopped
+    }
+    case (ctx, _) => Behaviors.same
+  }
 
