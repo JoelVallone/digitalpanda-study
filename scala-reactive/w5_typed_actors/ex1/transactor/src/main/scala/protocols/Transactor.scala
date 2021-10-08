@@ -2,6 +2,7 @@ package protocols
 
 import akka.actor.typed.*
 import akka.actor.typed.scaladsl.*
+import akka.actor.typed.scaladsl.Behaviors.receiveMessagePartial
 
 import scala.concurrent.duration.*
 
@@ -31,10 +32,7 @@ object Transactor:
     *                       terminating the session
     */
   def apply[T](value: T, sessionTimeout: FiniteDuration): Behavior[Command[T]] =
-    SelectiveReceive(30,
-      // TODO: Find a way to initialize the Transactor !
-      ??? // idle[T](value, sessionTimeout)
-    )
+    SelectiveReceive(30, idle[T](value, sessionTimeout).narrow)
 
   /**
     * @return A behavior that defines how to react to any [[PrivateCommand]] when the transactor
@@ -60,11 +58,12 @@ object Transactor:
     Behaviors.receive{
       case (ctx, Begin(replyTo)) => {
         val session = ctx.spawnAnonymous(sessionHandler[T](value, ctx.self, Set()))
-        ctx.scheduleOnce(sessionTimeout, session, Rollback[T]())
+        ctx.scheduleOnce(sessionTimeout, ctx.self, RolledBack(session))
         ctx.watchWith(session, RolledBack(session))
         replyTo ! session
         inSession(value, sessionTimeout, session)
-      } case (ctx, _) =>  Behaviors.same // TODO: or Behaviors.unhandled
+      }
+      case _ =>  Behaviors.same
     }
 
   /**
@@ -79,7 +78,7 @@ object Transactor:
     */
   private def inSession[T](rollbackValue: T,
                            sessionTimeout: FiniteDuration,
-                           sessionRef: ActorRef[Session[T]]): Behavior[PrivateCommand[T]] = Behaviors.receive{
+                           sessionRef: ActorRef[Session[T]]): Behavior[PrivateCommand[T]] = Behaviors.receivePartial{
     case (ctx, Committed(session, newValue)) => {
       if (sessionRef == session) {
         idle(newValue, sessionTimeout)
@@ -95,7 +94,6 @@ object Transactor:
         Behaviors.same
       }
     }
-    case (ctx, _) => Behaviors.unhandled
   }
 
   /**
@@ -131,6 +129,5 @@ object Transactor:
     case (ctx, Rollback()) => {
       Behaviors.stopped
     }
-    case (ctx, _) => Behaviors.same
   }
 
