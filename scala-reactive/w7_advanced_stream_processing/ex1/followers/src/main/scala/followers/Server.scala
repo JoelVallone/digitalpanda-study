@@ -5,14 +5,17 @@ import akka.event.Logging
 import akka.stream.scaladsl.{BroadcastHub, Flow, Framing, Keep, MergeHub, Sink, Source}
 import akka.stream.{ActorAttributes, Materializer}
 import akka.util.ByteString
+import followers.model.Event.{Follow, Unfollow}
 import followers.model.{Event, Followers, Identity}
 
-import scala.collection.immutable.SortedSet
+import scala.collection.immutable.{Queue, SortedSet}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /**
   * Utility object that describe stream manipulations used by the server
   * implementation.
+  *
+  * doc: https://doc.akka.io/docs/akka/current/stream/index.html
   */
 object Server extends ServerModuleInterface:
 
@@ -31,7 +34,9 @@ object Server extends ServerModuleInterface:
     * Hint: you may find the [[Framing]] flows useful.
     */
   val reframedFlow: Flow[ByteString, String, NotUsed] =
-    unimplementedFlow
+    Framing
+      .delimiter(ByteString("\n"), maximumFrameLength = 999, allowTruncation = false)
+      .map(_.utf8String)
 
   /**
     * A flow that consumes chunks of bytes and produces [[Event]] messages.
@@ -44,7 +49,8 @@ object Server extends ServerModuleInterface:
     * Hint: reuse `reframedFlow`
     */
   val eventParserFlow: Flow[ByteString, Event, NotUsed] =
-    unimplementedFlow
+    reframedFlow
+      .map(Event.parse(_))
 
   /**
     * Implement a Sink that will look for the first [[Identity]]
@@ -57,7 +63,9 @@ object Server extends ServerModuleInterface:
     * (and have a look at `Keep.right`).
     */
   val identityParserSink: Sink[ByteString, Future[Identity]] =
-    unimplementedSink
+    reframedFlow
+      .map(Identity.parse(_))
+      .toMat(Sink.head)(Keep.right)
 
   /**
     * A flow that consumes unordered messages and produces messages ordered by `sequenceNr`.
@@ -72,7 +80,27 @@ object Server extends ServerModuleInterface:
     * operation around in the operator.
     */
   val reintroduceOrdering: Flow[Event, Event, NotUsed] =
-    unimplementedFlow
+    Flow[Event].statefulMapConcat(() => {
+
+      var nextSeqNumber = 1;
+      var reorderingBuffer = Map[Int, Event]()
+
+      def extractOrderedSequence(expectedSequenceNr: Int, orderedSequence: Queue[Event]) : Queue[Event] =
+        if (reorderingBuffer.contains(expectedSequenceNr)) {
+          val nextEvent = reorderingBuffer(expectedSequenceNr)
+          reorderingBuffer -= expectedSequenceNr
+          nextSeqNumber = expectedSequenceNr + 1
+          extractOrderedSequence(expectedSequenceNr + 1, orderedSequence.enqueue(nextEvent))
+        } else {
+          orderedSequence
+        }
+
+      event => {
+        reorderingBuffer += (event.sequenceNr -> event)
+        extractOrderedSequence(nextSeqNumber, Queue.empty)
+      }
+    })
+
 
   /**
     * A flow that associates a state of [[Followers]] to
@@ -83,7 +111,25 @@ object Server extends ServerModuleInterface:
     *  - you may find the `statefulMapConcat` operation useful.
     */
   val followersFlow: Flow[Event, (Event, Followers), NotUsed] =
-    unimplementedFlow
+    Flow[Event].statefulMapConcat(() => {
+
+      var followers: Followers = Map().withDefault(k => Set())
+
+      e => e match  {
+        case Follow(_, fromUserId, toUserId) => {
+          followers += (fromUserId -> (followers(fromUserId) + toUserId))
+          (e, followers)::Nil
+        }
+        case Unfollow(_, fromUserId, toUserId) => {
+          followers += (fromUserId -> (followers(fromUserId) - toUserId))
+          (e, followers)::Nil
+        }
+        case _ => {
+          (e, followers)::Nil
+        }
+      }
+    })
+
 
   /**
     * @return Whether the given user should be notified by the incoming `Event`,
