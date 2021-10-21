@@ -5,7 +5,7 @@ import akka.event.Logging
 import akka.stream.scaladsl.{BroadcastHub, Flow, Framing, Keep, MergeHub, Sink, Source}
 import akka.stream.{ActorAttributes, Materializer}
 import akka.util.ByteString
-import followers.model.Event.{Follow, Unfollow}
+import followers.model.Event.{Follow, Unfollow, Broadcast, PrivateMsg, StatusUpdate}
 import followers.model.{Event, Followers, Identity}
 
 import scala.collection.immutable.{Queue, SortedSet}
@@ -138,8 +138,13 @@ object Server extends ServerModuleInterface:
     * @param userId Id of the user
     * @param eventAndFollowers Event and current state of followers
     */
-  def isNotified(userId: Int)(eventAndFollowers: (Event, Followers)): Boolean =
-    ???
+  def isNotified(userId: Int)(eventAndFollowers: (Event, Followers)): Boolean = eventAndFollowers._1  match  {
+      case Follow(_, fromUserId, toUserId) =>  toUserId == userId
+      case Unfollow(_, fromUserId, toUserId) =>  false
+      case Broadcast(_) => true
+      case PrivateMsg(_, fromUserId, toUserId) =>  toUserId == userId
+      case StatusUpdate(_, fromUserId) => eventAndFollowers._2.getOrElse(userId, Set()).contains(fromUserId)
+  }
 
   // Utilities to temporarily have unimplemented parts of the program
   private def unimplementedFlow[A, B, C]: Flow[A, B, C] =
@@ -176,7 +181,9 @@ class Server(using ExecutionContext, Materializer)
       * of the followers Map.
       */
     val incomingDataFlow: Flow[ByteString, (Event, Followers), NotUsed] =
-      unimplementedFlow
+      eventParserFlow
+        .via(reintroduceOrdering)
+        .via(followersFlow)
 
     // Wires the MergeHub and the BroadcastHub together and runs the graph
     MergeHub.source[ByteString](256)
