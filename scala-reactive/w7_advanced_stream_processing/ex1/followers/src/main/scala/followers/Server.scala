@@ -206,7 +206,7 @@ class Server(using ExecutionContext, Materializer)
     * `Flow.fromSinkAndSourceCoupled` to find how to achieve that.
     */
   val eventsFlow: Flow[ByteString, Nothing, NotUsed] =
-    unimplementedFlow
+    Flow.fromSinkAndSourceCoupled(inboundSink, Source.maybe)
 
   /**
     * @return The source of events for the given user
@@ -246,7 +246,10 @@ class Server(using ExecutionContext, Materializer)
 
     // A sink that parses the client identity and completes `clientIdPromise` with it
     val incoming: Sink[ByteString, NotUsed] =
-      ???
+      identityParserSink.mapMaterializedValue( v => {
+        v.onComplete(clientIdPromise.complete(_))
+        NotUsed
+      })
 
     val outgoing = Source.futureSource(clientIdPromise.future.map { identity =>
       outgoingFlow(identity.userId)
