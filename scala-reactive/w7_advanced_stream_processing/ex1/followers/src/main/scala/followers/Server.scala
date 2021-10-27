@@ -221,7 +221,9 @@ class Server(using ExecutionContext, Materializer)
     * Status Update:   All current followers of the From User ID should be notified
     */
   def outgoingFlow(userId: Int): Source[ByteString, NotUsed] =
-    ???
+    broadcastOut
+      .filter(isNotified(userId))
+      .map(_._1.render)
 
   /**
    * The "final form" of the client flow.
